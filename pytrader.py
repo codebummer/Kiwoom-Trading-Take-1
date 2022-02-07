@@ -12,14 +12,15 @@ class MyWindow(QMainWindow, trading_window):
     def __init__(self):
         super.__init__()
 
+        # self.kiwoom.comm_connect() - Connect and log-in procedures will be done in the Kiwoom class' constructor.
         self.kiwoom = Kiwoom()
-        self.kiwoom.comm_connect()
+        
 
-        self.kiwoom.req_tr_data()
+        self.kiwoom.req_tr_data() #Request transactions - look for big money transactions
 
-        self.kiwoom.send_order()
+        self.kiwoom.send_orders() #Place orders
 
-    def yield_rate(self):
+    def yield_rate(self): #Caculate the yield rate of the transactions made
 
 
 if __name__ == '__main__':
