@@ -7,19 +7,18 @@ import pandas_datareader.data as web
 import datetime
 import matplotlib
 import sys
+import functools
 
 # Take daily stock price records from online and arhive them in a database
 
 class databasization():
-    # def __init__(self):  
-    #     self._path = 'D:/myProjects/myKiwoom/'
 
     def set_full_path(self, filename):
-        path = 'D:/myProjects/myKiwoom/'
+        path = 'C:/myProjects/My-pyKiwwom1/'
         self.full_path = path + filename
 
-    def dateset(self, yy, mm, dd):
-        return datetime.datetime(yy, mm, dd)
+    def dateset(self, date_input):
+        return datetime.datetime(date_input[0], date_input[1], date_input[2])
 
     # First step to use a database. Instantiate a sqlite3.connect object.
     def create_connection_to_db(self):
@@ -39,11 +38,24 @@ class databasization():
         df.to_sql(table, connection)
         print(f'Price Data Archived in {self.full_path}')
 
-    # connection = create_connection(path)
-    # cursor = connection.cursor()
 
-    # posco_df = data_reader('005490.KS', start, end)
-    # df_to_db_archiver(posco_df, 'POSCO Daily Prices', connection)
+# Decorator to instantiate database creations
+def create_stock_db_instantiation(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        inst = func(*args, **kwargs)
+        inst.set_full_path(args[0])
+        start = inst.dateset(kwargs['start'])
+        end = inst.dateset(kwargs['end'])
+        inst_db = inst.create_connection_to_db()
+        inst_df = inst.data_reader(args[1], start, end)
+        inst.df_to_db_archiver(inst_df, args[2], inst_db)
+    return wrapper
+
+# Database creator
+@create_stock_db_instantiation
+def make_stock_db(db_file_name, stock_ticker, db_table_name, start_date: dict, end_dates: dict):
+    return databasization()
 
 
 class Kiwoom(QAxWidget):
@@ -63,58 +75,29 @@ class Kiwoom(QAxWidget):
 
     def set_signal_slots(self):
         self.OnEventConnect(self.connect_signal_slot)
+        
     
-    def set_input_values(self, tr_input_name, tr_input_value)
+    def set_input_values(self, tr_input_name, tr_input_value):
         self.SetInputValue(tr_input_name, tr_input_value)
 
     def connect_signal_slot(self, errcode):
+        # print(self.connect_signal_slot)
         if errcode == 0:
             print('Successfully Connected')
         else:
             print('Connection Failed')
         
         self.login_event_loop.exit()
+        
+
 
 
 
 if __name__ == '__main__':    
-    # db_file = 'POSCO.db'
-    # start = datetime.datetime(2010, 1, 1)
-    # end = datetime.datetime(2022, 3, 19)
 
-    # posco = databasization()
-    # posco_db = posco.create_connection_to_db(db_file)
-    # posco_df = posco.data_reader('005490.KS', start, end)
-    # posco.df_to_db_archiver(posco_df, 'POSCO Daily Prices', posco_db)
-
-    # hiteholdings = databasization()
-    # hiteholdings.set_full_path('HiteJino_Holdings.db')
-    # start = hiteholdings.dateset(2010, 1, 1)
-    # end = hiteholdings.dateset(2022, 3, 19)
-    # hiteholdings_db = hiteholdings.create_connection_to_db()
-    # hiteholdings_df = hiteholdings.data_reader('000140.KS', start, end)
-    # hiteholdings.df_to_db_archiver(hiteholdings_df, 'Hite Jino Holdings Daily Prices', hiteholdings_db)
-
-    samsung = databasization()
-    samsung.set_full_path('Samsung.db')
-    start = samsung.dateset(2010, 1, 1)
-    end = samsung.dateset(2022, 3, 19)
-    
-    # sq3lite.connect() to instantiate a connect() object
-    samsung_db = samsung.create_connection_to_db() 
-    # Download price records from Yahoo
-    samsung_df = samsung.data_reader('005930.KS', start, end) 
-    # Put the records in a database
-    samsung.df_to_db_archiver(samsung_df, 'Samsung Daily Prices', samsung_db) 
+    make_stock_db('LG.db', '003550.KS', 'LG Daily Price', start = [2010, 1, 1], end = [2022, 3, 18])
        
-        
 
-    app = QApplication(sys.argv)
-    kiwoom = Kiwoom()
-    app.exec_()
-
-
-
-
-
-
+    # app = QApplication(sys.argv)
+    # kiwoom = Kiwoom()
+    # app.exec_()
