@@ -14,7 +14,7 @@ import functools
 class databasization():
 
     def set_full_path(self, filename):
-        path = 'C:/myProjects/My-pyKiwwom1/'
+        path = 'D:/myProjects/myKiwoom/'
         self.full_path = path + filename
 
     def dateset(self, date_input):
@@ -42,27 +42,75 @@ class databasization():
 # Decorator to instantiate database creations
 def create_stock_db_instantiation(func):
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        inst = func(*args, **kwargs)
-        inst.set_full_path(args[0])
-        start = inst.dateset(kwargs['start'])
-        end = inst.dateset(kwargs['end'])
+    def wrapper(stock_info: dict):
+        inst = func(stock_info)
+        inst.set_full_path(stock_info['file'])
+        start = inst.dateset(stock_info['start'])
+        end = inst.dateset(stock_info['end'])
         inst_db = inst.create_connection_to_db()
-        inst_df = inst.data_reader(args[1], start, end)
-        inst.df_to_db_archiver(inst_df, args[2], inst_db)
+        inst_df = inst.data_reader(stock_info['ticker'], start, end)
+        inst.df_to_db_archiver(inst_df, stock_info['table'], inst_db)
     return wrapper
 
 # Database creator
 @create_stock_db_instantiation
-def make_stock_db(db_file_name, stock_ticker, db_table_name, start_date: dict, end_dates: dict):
+def make_stock_db(stock_info: dict):
     return databasization()
 
 stocks_of_interest = [
-    ['Samsung.db', '005930.KS', 'Samsung Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]],
-    ['Hite_Jino_Holdings.db', '000140.KS', 'Hite Jino Holdings Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]],
-    ['POSCO.db', '005490.KS', 'POSCO Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]],
-    ['LG_Electronics.db', '066570.KS', 'LG Electronics Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]]    
+    {
+        'file' : 'Samsung.db',
+        'ticker' : '005930.KS',
+        'table' : 'Samsung Daily Prices',
+        'start': [2010, 1, 1],
+        'end': [2022, 3, 18]
+    },
+    {
+        'file' : 'Hite_Jino_Holdings.db',
+        'ticker' : '000140.KS',
+        'table' : 'Hite Jino Holdings Daily Prices',
+        'start' : [2010, 1, 1],
+        'end' : [2022, 3, 18]
+    },
+    {
+        'file' : 'POSCO.db',
+        'ticker' : '005490.KS',
+        'table' : 'POSCO Daily Prices',
+        'start': [2010, 1, 1],
+        'end': [2022, 3, 18]
+    },
+    {
+        'file' : 'LG_Electronics.db',
+        'ticker' : '066570.KS',
+        'table' : 'LG Electronics Daily Prices',
+        'start': [2010, 1, 1],
+        'end': [2022, 3, 18]
+    }    
 ]
+
+'''
+Feed elements of a multi-demensional list one at each
+This is the same as unpacking operator (*)
+
+functools.reduce(make_stock_db, *stock_of_interest)
+The above one line statement is the same as the below four line statements 
+
+def stock_list_generator(lists):
+    for one_stock_info in lists:
+        yield one_stock_info
+functools.reduce(make_stock_db, stock_list_generator(stocks_of_interest)) # functools.reduce() flattens or reduces higer dimension lists
+
+
+
+stocks_of_interest = [
+    ['Samsung.db', '005930.KS', 'Samsung Daily Prices', {'start': [2010, 1, 1], 'end': [2022, 3, 18]}],
+    ['Hite_Jino_Holdings.db', '000140.KS', 'Hite Jino Holdings Daily Prices', {'start': [2010, 1, 1], 'end': [2022, 3, 18]}],
+    ['POSCO.db', '005490.KS', 'POSCO Daily Prices', {'start': [2010, 1, 1], 'end': [2022, 3, 18]}],
+    ['LG_Electronics.db', '066570.KS', 'LG Electronics Daily Prices', {'start': [2010, 1, 1], 'end': [2022, 3, 18]}]    
+]
+'''
+
+
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -97,8 +145,8 @@ class Kiwoom(QAxWidget):
  
 if __name__ == '__main__':    
     
-    # functools.reduce() flattens or reduces higer dimension lists
-    functools.reduce(make_stock_db, [element for stocks in stocks_of_interest for element in stocks])
+    for stock_details in stocks_of_interest:
+        make_stock_db(stock_details)
 
     # app = QApplication(sys.argv)
     # kiwoom = Kiwoom()
