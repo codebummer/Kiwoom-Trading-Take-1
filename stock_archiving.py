@@ -57,6 +57,12 @@ def create_stock_db_instantiation(func):
 def make_stock_db(db_file_name, stock_ticker, db_table_name, start_date: dict, end_dates: dict):
     return databasization()
 
+stocks_of_interest = [
+    ['Samsung.db', '005930.KS', 'Samsung Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]],
+    ['Hite_Jino_Holdings.db', '000140.KS', 'Hite Jino Holdings Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]],
+    ['POSCO.db', '005490.KS', 'POSCO Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]],
+    ['LG_Electronics.db', '066570.KS', 'LG Electronics Daily Prices', start = [2010, 1, 1], end = [2022, 3, 18]]    
+]
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -88,15 +94,11 @@ class Kiwoom(QAxWidget):
             print('Connection Failed')
         
         self.login_event_loop.exit()
-        
-
-
-
-
+ 
 if __name__ == '__main__':    
-
-    make_stock_db('LG.db', '003550.KS', 'LG Daily Price', start = [2010, 1, 1], end = [2022, 3, 18])
-       
+    
+    # functools.reduce() flattens or reduces higer dimension lists
+    functools.reduce(make_stock_db, [element for stocks in stocks_of_interest for element in stocks])
 
     # app = QApplication(sys.argv)
     # kiwoom = Kiwoom()
