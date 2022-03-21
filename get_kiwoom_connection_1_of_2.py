@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QAxContainer import *
 import sys
 
-class Kiwoom(QAxWidget):
+class Kiwoom_Connect(QAxWidget):
     def __init__(self):
         super().__init__()
         self._ProgID_transfer_to_QAxWidget_object()
@@ -36,7 +36,7 @@ class Kiwoom(QAxWidget):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    kiwoom = Kiwoom()
+    kiwoom = Kiwoom_Connect()
     kiwoom.comm_connect()
     app.exec_()
 
