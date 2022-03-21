@@ -1,4 +1,4 @@
-from get_kiwoom_connection_1_of_2 import *
+from get_kiwoom_connection_2 import *
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
