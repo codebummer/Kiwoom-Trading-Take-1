@@ -9,8 +9,8 @@ params = {
     'bsns_year' : '2018',
     'reprt_code' : '11011'
 }
-
-response = requests.get(url, params)
+with requests.get(url, params) as response:
+    print('Successfully downloaded data from the API request')
 df = pd.DataFrame.from_dict(response.json()['list'])
 
 with sqlite3.connect('D:/myProjects/myKiwoom/DART_Test.db') as connection:
