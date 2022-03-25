@@ -1,0 +1,44 @@
+from PyQt5.QtCore import *
+from PyQt5.QAxContainer import *
+from PyQt5.QtWidgets import *
+import sys
+
+app = QApplication(sys.argv)
+ocx = QAxWidget('KHOPENAPI.KHOpenAPICtrl.1')
+
+ocx.dynamicCall('CommConnect()')
+login_loop = QEventLoop()
+login_loop.exec_()
+
+# ocx.OnEventConnect.connect(lambda err: print(err))
+ocx.OnEventConnect.connect(login_result)
+
+def login_result(err):
+    if err == 0:
+        print('connected')
+    login_loop.quit()
+    
+    def set_input(id, value):
+    ocx.dynamicCall('SetInputValue(QString, QString)', id, value)
+
+def comm_re(rq, tr, continued, scr):
+    ocx.dynamicCall('CommRqData(QString, QString, QString, int, QSTring)', rq, tr, continued, scr)
+    tr_loop = QEventLoop()
+    tr_loop.exec_()
+    
+    
+set_input('종목코드', '005930')
+set_input('기준일자', '20220324')
+set_input('수정주가구분', '1')
+comm_re('RQ1', 'opt10081', '0', '0100' )
+ocx.OnReceiveTrData.connect(tr_received)
+
+def tr_received(scr, rqname, trcode, recordname, continued, datalen, errcode, msg, spm_msg):
+    count = ocx.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
+    data_req = ['현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '전일종가', '종목정보']
+    results = []
+    for num in count:
+        for req in data_req:
+            results.append(ocx.dynamicCall('GetCommData(QString, QString, int, QString)', trcode, recordname, num, req))
+    print(results)
+    
