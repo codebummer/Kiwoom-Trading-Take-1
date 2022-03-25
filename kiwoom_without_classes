@@ -16,6 +16,8 @@ ocx.OnEventConnect.connect(login_result)
 def login_result(err):
     if err == 0:
         print('connected')
+    else:
+        print('disconnected')
     login_loop.quit()
     
 def set_input(id, value):
