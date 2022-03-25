@@ -10,7 +10,7 @@ ocx.dynamicCall('CommConnect()')
 login_loop = QEventLoop()
 login_loop.exec_()
 
-# ocx.OnEventConnect.connect(lambda err: print(err))
+# ocx.OnEventConnect[int].connect(lambda err: print(err))
 ocx.OnEventConnect.connect(login_result)
 
 def login_result(err):
