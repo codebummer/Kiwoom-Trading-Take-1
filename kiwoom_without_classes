@@ -18,7 +18,7 @@ def login_result(err):
         print('connected')
     login_loop.quit()
     
-    def set_input(id, value):
+def set_input(id, value):
     ocx.dynamicCall('SetInputValue(QString, QString)', id, value)
 
 def comm_re(rq, tr, continued, scr):
@@ -41,4 +41,3 @@ set_input('기준일자', '20220324')
 set_input('수정주가구분', '1')
 comm_re('RQ1', 'opt10081', '0', '0100' )
 ocx.OnReceiveTrData.connect(tr_received)
-
