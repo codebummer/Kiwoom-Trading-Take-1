@@ -6,12 +6,14 @@ import sys
 app = QApplication(sys.argv)
 ocx = QAxWidget('KHOPENAPI.KHOpenAPICtrl.1')
 
+# ocx.OnEventConnect[int].connect(lambda err: print(err))
+ocx.OnEventConnect.connect(login_result)
+
 ocx.dynamicCall('CommConnect()')
 login_loop = QEventLoop()
 login_loop.exec_()
 
-# ocx.OnEventConnect[int].connect(lambda err: print(err))
-ocx.OnEventConnect.connect(login_result)
+
 
 def login_result(err):
     if err == 0:
