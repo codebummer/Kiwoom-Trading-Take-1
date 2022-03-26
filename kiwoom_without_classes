@@ -13,13 +13,12 @@ def login_result(err):
     if err == 0:
         print('connected')
     
-    
+ocx.OnEventConnect.connect(login_result)    
+
 # ocx.OnEventConnect.connect(lambda err: print(err))
 ocx.dynamicCall('CommConnect()')
 login_loop = QEventLoop()
 login_loop.exec_()
-
-ocx.OnEventConnect.connect(login_result)
 login_loop.quit()
 
 
