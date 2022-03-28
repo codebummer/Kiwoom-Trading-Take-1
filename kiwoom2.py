@@ -5,6 +5,9 @@ import pandas as pd
 import time
 import sqlite3
 import matplotlib.pyplot as plt
+import mplfinance as mpf
+import finplot as fplt
+
 
 class tr_requests(Kiwoom):
     def __init__(self):
@@ -103,14 +106,25 @@ def df_to_db(df, dbname, table):
         print('saved requested data in db')
     except Error as e:
         print(e)
-    
+
+def visualize(df):
+    # fig = plt.figure(figsize=(12,8))
+    # ax = fig.add_subplot(111)
+    # # mpf.plot(df.loc['20220325':'20220124', :], type='candle', mav=(5, 10), volume=True)
+    # mpf.candlestick(ax, df['시가'], df['고가'], df['저가'], df['현재가'], width=0, colorup='r', colordown='b')
+    # plt.show()
+    fplt.candlestick_ochl(df[['시가', '현재가', '고가', '저가']])
+    fplt.plot(df.현재가.rolling(5).mean())
+    fplt.plot(df.현재가.rolling(10).mean())
+    fplt.show()
+
 
 if __name__ == '__main__':
     transaction_req = tr_requests()
     comm_requsts_handler(transaction_req, opt_10081_set_inputs, opt_10081_comm_inputs)
     df_to_db(transaction_req.results_df, 'daily_records.db', 'Daily Prices')
-    plt.plot(transaction_req.results_df['현재가'].head())
-    plt.show()
+    visualize(transaction_req.results_df)
+   
 
     
     
