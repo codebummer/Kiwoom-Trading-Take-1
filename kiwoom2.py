@@ -58,6 +58,7 @@ class tr_requests(Kiwoom):
                 # strip() can function on that form. 
                 results_sub.append(self.get_comm_data_slot(trcode, recordname, itemnum, item)) 
             _opt_10081_df[item] = results_sub
+        _opt_10081_df = _opt_10081_df.set_index('일자')
         print(f'Results for requests are as follows:\n', _opt_10081_df)
         return _opt_10081_df
 
@@ -86,9 +87,27 @@ def comm_requsts_handler(self, set_inputs, comm_inputs):
         inputs(self, set_inputs)
         self.comm_request_data(*comm_inputs)
 
+def db_factory(dbname):
+    return sqlite3.connect('D:/myProjects/myKiwoom/'+dbname)
+
+def df_to_db(df, dbname, table):
+    try:
+        db = db_factory(dbname)
+        print('connected to db')
+    except Error as e:
+        print(e)
+    
+    try:
+        df.to_sql(table, db, if_exists = 'replace')
+        print('saved requested data in db')
+    except Error as e:
+        print(e)
+    
+
 if __name__ == '__main__':
     transaction_req = tr_requests()
     comm_requsts_handler(transaction_req, opt_10081_set_inputs, opt_10081_comm_inputs)
+    df_to_db(transaction_req.results_df, 'daily_records.db', 'Daily Prices')
     
     
 
