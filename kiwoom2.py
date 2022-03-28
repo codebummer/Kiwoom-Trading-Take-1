@@ -3,6 +3,7 @@ from pickle import TRUE
 from kiwoom1 import *
 import pandas as pd
 import time
+import sqlite3
 
 class tr_requests(Kiwoom):
     def __init__(self):
@@ -27,7 +28,7 @@ class tr_requests(Kiwoom):
             self.remaining_data = False
 
         if trcode == 'opt10081':
-            self._opt_10081(trcode, recordname)
+            self.results_df = self._opt_10081(trcode, recordname)
 
         try:
             self.data_request_loop.exit()            
@@ -35,7 +36,7 @@ class tr_requests(Kiwoom):
             raise e            
 
     def get_comm_data_slot(self, trcode, recordname, index, itemname):
-        self.dynamicCall('GetCommData(QString, QString, int, QString)', trcode, recordname, index, itemname).strip()
+        return self.dynamicCall('GetCommData(QString, QString, int, QString)', trcode, recordname, index, itemname).strip()
 
     def _get_repeat_cnt(self, trcode, recordname):
         return self.dynamicCall('GetRepeatCnt(QString, QSTring)', trcode, recordname)
@@ -46,7 +47,7 @@ class tr_requests(Kiwoom):
     def _opt_10081(self, trcode, recordname):
         _index = self._get_repeat_cnt(trcode, recordname)
         _itemnames = self.get_item_names()
-        opt_10081_df = pd.DataFrame([])
+        _opt_10081_df = pd.DataFrame([])
         for item in _itemnames:  
             results_sub = []
             for itemnum in range(_index):            
@@ -56,8 +57,9 @@ class tr_requests(Kiwoom):
                 # Instead, use strip() directly on the returned value of GetCommData
                 # strip() can function on that form. 
                 results_sub.append(self.get_comm_data_slot(trcode, recordname, itemnum, item)) 
-            opt_10081_df[item] = results_sub
-        print(f'Results for requests are as follows:\n', opt_10081_df)
+            _opt_10081_df[item] = results_sub
+        print(f'Results for requests are as follows:\n', _opt_10081_df)
+        return _opt_10081_df
 
 TR_REQ_TIME_INTERVAL = 0.2
 
@@ -71,7 +73,7 @@ opt_10081_set_inputs = {
     '수정주가구분' : 1
 }
 
-opt_10081_comm_inputs = ['RQ_opt10081', 'opt10081', 0, '0001']
+opt_10081_comm_inputs = ['rq_opt10081', 'opt10081', 0, '0001']
 
 def comm_requsts_handler(self, set_inputs, comm_inputs):
     # perform the first request without checking if remaining_data is true 
