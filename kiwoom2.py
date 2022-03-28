@@ -4,6 +4,7 @@ from kiwoom1 import *
 import pandas as pd
 import time
 import sqlite3
+import matplotlib.pyplot as plt
 
 class tr_requests(Kiwoom):
     def __init__(self):
@@ -108,6 +109,9 @@ if __name__ == '__main__':
     transaction_req = tr_requests()
     comm_requsts_handler(transaction_req, opt_10081_set_inputs, opt_10081_comm_inputs)
     df_to_db(transaction_req.results_df, 'daily_records.db', 'Daily Prices')
+    plt.plot(transaction_req.results_df['현재가'].head())
+    plt.show()
+
     
     
 
