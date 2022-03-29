@@ -4,8 +4,8 @@ from kiwoom1 import *
 import pandas as pd
 import time
 import sqlite3
-import matplotlib.pyplot as plt
-import mplfinance as mpf
+# import matplotlib.pyplot as plt
+# import mplfinance as mpf
 import finplot as fplt
 
 
@@ -62,8 +62,12 @@ class tr_requests(Kiwoom):
                 # strip() can function on that form. 
                 results_sub.append(self.get_comm_data_slot(trcode, recordname, itemnum, item)) 
             _opt_10081_df[item] = results_sub
+        # Convert strings to date(numbers). 
+        # Without converting, the finplot module cannot operate on it to draw candle sticks
+        _opt_10081_df['일자'] = pd.to_datetime(_opt_10081_df['일자'])         
         _opt_10081_df = _opt_10081_df.set_index('일자')
-        print(f'Results for requests are as follows:\n', _opt_10081_df)
+        _opt_10081_df = _opt_10081_df[:].astype(int)
+        print(f'Results for requests are as follows:\n', _opt_10081_df)       
         return _opt_10081_df
 
 TR_REQ_TIME_INTERVAL = 0.2
