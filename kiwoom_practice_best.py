@@ -29,7 +29,35 @@ class Kiwoom(QAxWidget):
     def reset(self):
         self.remaining_data = False
         self.ohlcva = {'Date':[], 'Open':[], 'High':[], 'Low':[], 'Close':[], 'Volume':[], 'Amount':[]}
-   
+        self.status_column = ['Current', 'FromYesterday', 'Change%', 'Ask', 'Bid', 'VolumeAccummulated', 
+                            'AmountAccumulated', 'Open', 'High', 'Low', 'PlusMinusFromYesterday',
+                            'VolumeFromYesterday', 'AmountChange', 'AmountChangeRatio', 'TransactionTurnOut',
+                            'TransactionCost', 'MarketCap', 'HighTime', 'LowTime']
+        self.stock_status = []
+        self.tr_made = []
+        # self.stock_status = pd.DataFrame({
+        #     'Current' : [],
+        #     'FromYesterday' : [],
+        #     'Change%' : [],
+        #     'Ask' : [], #sell
+        #     'Bid' : [], #buy
+        #     'VolumeAccummulated' : [],
+        #     'AmountAccumulated' : [],
+        #     'Open' : [],
+        #     'High' : [],
+        #     'Low' : [],
+        #     'PlusMinusFromYesterday' : [],
+        #     'VolumeFromYesterday' : [],
+        #     'AmountChange' : [],
+        #     'AmountChangeRatio' : [],
+        #     'TransactionTurnOut' : [],
+        #     'TransactionCost' : [],
+        #     'MarketCap' : [], #thousand million
+        #     'HighTime' : [],
+        #     'LowTime' : []
+        # })
+
+
     def account_info(self):
         account_num = self.dynamicCall('GetLoginInfo(QString)', ['ACCNO'])
         print(account_num.strip(';'))
@@ -59,6 +87,7 @@ class Kiwoom(QAxWidget):
     def _event_handlers(self):
         self.OnEventConnect.connect(self._comm_connect_event)
         self.OnReceiveTrData.connect(self._receive_tr_data)
+        self.OnReceiveRealData.connect(self._receive_real_data)
     
     def _comm_connect_event(self, err_code):
         if err_code == 0:
@@ -86,6 +115,36 @@ class Kiwoom(QAxWidget):
 
         except AttributeError:
             pass
+    
+    def _receive_real_data(self, code, realtype, realdata):
+        if realtype == '주식시세':
+            self._realtype_stock_status(code)
+        # if realtype == '주식체결':
+        #     self._realtype_tr_made(code)
+
+    def _realtype_stock_status(self, code):
+        fid = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
+        add = []
+        for id in fid:
+            add.append(self._get_comm_real_data(code, id))        
+        self.stock_status.append([add])
+        print(add)
+
+        if len(self.stock_status) == 5_000:
+            status = pd.DataFrame(self.stock_status, columns=self.status_column)
+            self._data_to_sql('Stock_Status', status)
+            self.stock_status = []
+        
+    # def _realtype_tr_made(self, code):
+    #     fid = [20, 10, 11, 12, 27, 28, 15, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 228, 311, 290, 691, 567, 568, 851]
+    #     add = []
+    #     for id in fid:
+    #         add.append(self._get_comm_real_data(code, id))
+    #     self.tr_made.append([add])
+    #     print(add)
+    
+    def _get_comm_real_data(self, code, fid):
+        return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
 
     def _get_repeat_cont(self, trcode, recordname):   
         print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
@@ -159,11 +218,17 @@ class Kiwoom(QAxWidget):
             self.set_input_value('틱범위', ticktime)
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10079', 'opt10079', 2, '0001')
+    
+    def _data_to_sql(self, tablename, df):
+        path = r'D:\myProjects\myKiwoom\900310.db'
+        with sqlite3.connect(path) as file:
+            df.to_sql(tablename, file, if_exists='append')
+
 
 def save_in_sq(tablename, df):
     # ticktime = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')    
     # path = f'D:/myProjects/myKiwoom/algotrading_data_{ticktime}.db'
-    path = r'D:\myProjects\myKiwoom\039490.db'
+    path = r'D:\myProjects\myKiwoom\900310.db'
     with sqlite3.connect(path) as file: 
         df.to_sql(tablename, file, if_exists='replace')
  
@@ -171,22 +236,22 @@ app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
 
-kiwoom.request_daily_chart('039490', '20170224')
+kiwoom.request_daily_chart('900310', '20170224')
 df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
-save_in_sq('039490_Daily', df)
+save_in_sq('900310_Daily', df)
 kiwoom.reset()
 df = pd.DataFrame()
 
-kiwoom.request_tick_chart('039490')
+kiwoom.request_tick_chart('900310')
 df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
-save_in_sq('03940_Tick', df)
+save_in_sq('900310_Tick', df)
 kiwoom.reset()
 
-plt.plot(df.index, df.Close)
-plt.xticks(rotation=45)
-plt.show()
+# plt.plot(df.index[-100:], df.Close[-100:])
+# plt.xticks(rotation=45)
+# plt.show()
 # app.exec_()
 
 
