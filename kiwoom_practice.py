@@ -5,6 +5,7 @@ import sqlite3
 import pandas as pd
 import time
 import sys
+from datetime import datetime
 
 TR_REQ_TIME_INTERVAL = 0.2
 
@@ -13,16 +14,22 @@ class Kiwoom(QAxWidget):
         super().__init__()
         
         # self.KOSPI_list = pd.DataFrame()
-        
-        self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
 
-        self._event_handler()
-
+        self.reset()
+        self.OCX_available()      
+        self._event_handlers()
         self._login()
         
         self.account_info()
-        self.KOSPI_list = self.stock_ticker()
+        self.KOSPI_list = self.stock_ticker()        
+
+
+    def OCX_available(self):
+        self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
+
+    def reset(self):
         self.remaining_data = False
+        self.ohlcva = {'Date':[], 'Open':[], 'High':[], 'Low':[], 'Close':[], 'Volume':[], 'Amount':[]}
         # self.db_sql('KOSPI')
    
     def account_info(self):
@@ -60,7 +67,7 @@ class Kiwoom(QAxWidget):
         self.login_loop = QEventLoop()
         self.login_loop.exec_()
 
-    def _event_handler(self):
+    def _event_handlers(self):
         self.OnEventConnect.connect(self._comm_connect_event)
         self.OnReceiveTrData.connect(self._receive_tr_data)
     
@@ -70,15 +77,15 @@ class Kiwoom(QAxWidget):
         self.login_loop.exit()
         print('Login loop exited')
     
-    def _receive_tr_data(self, scrno, rqname, trcode, recordname, prenext, datalen, errcode, message, splmmsg):
+    def _receive_tr_data(self, scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4):
         if prenext == 2:
             self.remaining_data = True
         elif prenext == 0:
             self.remaining_data = False
         
         if rqname == 'OPT10081':
-            print('scrno, rqname, trcode, recordname, prenext, datalen, errcode, message, splmmsg: \n',\
-                 scrno, rqname, trcode, recordname, prenext, datalen, errcode, message, splmmsg)
+            print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
+                 scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)
             self._opt10081(rqname, trcode)
 
         try:
@@ -95,15 +102,15 @@ class Kiwoom(QAxWidget):
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
 
         for idx in range(data_cnt):
-            date = self._get_comm_data(trcode, rqname, idx, '일자')
-            open = self._get_comm_data(trcode, rqname, idx, '시가')
-            high = self._get_comm_data(trcode, rqname, idx, '고가')
-            low = self._get_comm_data(trcode, rqname, idx, '저가')
-            close = self._get_comm_data(trcode, rqname, idx, '현재가')
-            volume = self._get_comm_data(trcode, rqname, idx, '거래량') 
-            amount =  self._get_comm_data(trcode, rqname, idx, '거래대금') 
-            print(date, open, high, low, close, volume, amount)
-    
+            self.ohlcva['Date'].append(self._get_comm_data(trcode, rqname, idx, '일자'))
+            self.ohlcva['Open'].append(int(self._get_comm_data(trcode, rqname, idx, '시가')))
+            self.ohlcva['High'].append(int(self._get_comm_data(trcode, rqname, idx, '고가')))
+            self.ohlcva['Low'].append(int(self._get_comm_data(trcode, rqname, idx, '저가')))
+            self.ohlcva['Close'].append(int(self._get_comm_data(trcode, rqname, idx, '현재가')))
+            self.ohlcva['Volume'].append(int(self._get_comm_data(trcode, rqname, idx, '거래량')))
+            self.ohlcva['Amount'].append(int(self._get_comm_data(trcode, rqname, idx, '거래대금')))   
+               
+
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
@@ -120,12 +127,18 @@ class Kiwoom(QAxWidget):
             self.set_input_value('수정주가구분', recordtype)
             self.comm_rq_data('OPT10081', 'opt10081', 2, '0101')
 
-
+def save_in_sq(tablename, df):
+    path = r'D:\myProjects\myKiwoom\algotrading_data.db'
+    with sqlite3.connect(path) as file: 
+        df.to_sql(tablename, file, if_exists='replace')
  
 app = QApplication(sys.argv)
-kiwoom = Kiwoom()
 
+kiwoom = Kiwoom()
 kiwoom.order_daily_chart('039490', '20170224')
+df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
+print(df)
+save_in_sq('039490', df)
 
 # app.exec_()
 
