@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
+import sqlite3
+import pandas as pd
 
 import sys
 
@@ -8,6 +10,8 @@ import sys
 class Kiwoom(QAxWidget):
     def __init__(self):
         super().__init__()
+        
+        self.KOSPI_list = pd.DataFrame()
         
         self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
         self.event_handler()
@@ -18,6 +22,8 @@ class Kiwoom(QAxWidget):
         
         self.account_info()
         self.stock_ticker()
+        self.db_sql('KOSPI')
+      
      
     def event_handler(self):
         self.OnEventConnect.connect(self.comm_connect_event)
@@ -35,12 +41,23 @@ class Kiwoom(QAxWidget):
     def stock_ticker(self):
         response = self.dynamicCall('GetCodeListByMarket(QString)', ['0'])
         tickers = response.split(';')
-        stock_list = []
+        stock_list = {}
         for ticker in tickers:
             stock = self.dynamicCall('GetMasterCodeName(QString)', [ticker])
-            stock_list.append(stock + ' : ' + ticker)
-        
+            stock_list[ticker] = [stock]
+
+        self.KOSPI_list = pd.DataFrame(stock_list)
         print(stock_list)
+        print(self.KOSPI_list)
+    
+    def db_sql(self, table):
+        dbfile = sqlite3.connect(r'D:\myProjects\myKiwoom\KOSPI.db')
+        cursor = dbfile.cursor()
+        self.KOSPI_list.to_sql(table, cursor, if_exists='replace')
+
+
+
+
 
 
 app = QApplication(sys.argv)
