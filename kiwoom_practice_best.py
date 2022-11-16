@@ -182,6 +182,7 @@ df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
 save_in_sq('03940_Tick', df)
 kiwoom.reset()
+df = pd.DataFrame()
 
 
 # app.exec_()
