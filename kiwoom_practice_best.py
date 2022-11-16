@@ -6,6 +6,7 @@ import pandas as pd
 import time
 import sys
 from datetime import datetime
+import matplotlib.pyplot as plt
 
 TR_REQ_TIME_INTERVAL = 0.2
 
@@ -182,9 +183,10 @@ df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
 save_in_sq('03940_Tick', df)
 kiwoom.reset()
-df = pd.DataFrame()
 
-
+plt.plot(df.index, df.Close)
+plt.xticks(rotation=45)
+plt.show()
 # app.exec_()
 
 
