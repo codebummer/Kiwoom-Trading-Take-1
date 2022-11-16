@@ -76,10 +76,10 @@ class Kiwoom(QAxWidget):
         elif prenext == 0:
             self.remaining_data = False
         
-        if rqname == 'opt10081_req':
+        if rqname == 'OPT10081':
             print('scrno, rqname, trcode, recordname, prenext, datalen, errcode, message, splmmsg: \n',\
                  scrno, rqname, trcode, recordname, prenext, datalen, errcode, message, splmmsg)
-            self._opt10081(rqname, trcode, recordname)
+            self._opt10081(rqname, trcode)
 
         try:
             self.tr_event_loop.exit()
@@ -91,8 +91,8 @@ class Kiwoom(QAxWidget):
         print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
         return self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
 
-    def _opt10081(self, rqname, trcode, recordname):
-        data_cnt = self._get_repeat_cont(trcode, recordname)
+    def _opt10081(self, rqname, trcode):
+        data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
 
         for idx in range(data_cnt):
             date = self._get_comm_data(trcode, rqname, idx, '일자')
@@ -100,26 +100,32 @@ class Kiwoom(QAxWidget):
             high = self._get_comm_data(trcode, rqname, idx, '고가')
             low = self._get_comm_data(trcode, rqname, idx, '저가')
             close = self._get_comm_data(trcode, rqname, idx, '현재가')
-            volume = self._get_comm_data(trcode, rqname, idx, '거래량')  
-            print(date, open, high, low, close, volume)
+            volume = self._get_comm_data(trcode, rqname, idx, '거래량') 
+            amount =  self._get_comm_data(trcode, rqname, idx, '거래대금') 
+            print(date, open, high, low, close, volume, amount)
     
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
+
+    def order_daily_chart(self, code, date, recordtype=1):
+        self.set_input_value('종목코드', code)
+        self.set_input_value('기준일자', date)
+        self.set_input_value('수정주가구분', recordtype)
+        self.comm_rq_data('OPT10081', 'opt10081', 1, '0101')
+
+        while self.remaining_data == True:
+            time.sleep(TR_REQ_TIME_INTERVAL)
+            self.set_input_value('종목코드', code)
+            self.set_input_value('기준일자', date)
+            self.set_input_value('수정주가구분', recordtype)
+            self.comm_rq_data('OPT10081', 'opt10081', 2, '0101')
+
+
  
 app = QApplication(sys.argv)
 kiwoom = Kiwoom()
 
-kiwoom.set_input_value('종목코드', '039490')
-kiwoom.set_input_value('기준일자', '20170224')
-kiwoom.set_input_value('수정주가구분', 1)
-kiwoom.comm_rq_data('opt10081_req', 'opt10081', 1, '0101')
-
-# while kiwoom.remaining_data == True:
-#     time.sleep(TR_REQ_TIME_INTERVAL)
-#     kiwoom.set_input_value('종목코드', '039490')
-#     kiwoom.set_input_value('기준일자', '20170224')
-#     kiwoom.set_input_value('수정주가구분', 1)
-#     kiwoom.comm_rq_data('opt10081_req', 'opt10081', 2, '0101')
+kiwoom.order_daily_chart('039490', '20170224')
 
 # app.exec_()
 
