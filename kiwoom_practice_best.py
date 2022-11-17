@@ -6,7 +6,7 @@ import pandas as pd
 import time
 import sys
 from datetime import datetime
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 TR_REQ_TIME_INTERVAL = 0.2
 
@@ -72,7 +72,10 @@ class Kiwoom(QAxWidget):
         return stock_list
     
     def set_input_value(self, tr_name, tr_value):
-        return self.dynamicCall('SetInputValue(QString, QString)', tr_name, tr_value)
+        self.dynamicCall('SetInputValue(QString, QString)', tr_name, tr_value)
+    
+    def set_real_data(self, scrno, codelist, fidlist, opttype):
+        self.dynamicCall('SetRealReg(QString, QString, QString, QString)', scrno, codelist, fidlist, opttype)
     
     def comm_rq_data(self, rqname, trcode, prenext, scrno):
         self.dynamicCall('CommRQData(QString, QString, int, QString)', rqname, trcode, prenext, scrno)
@@ -116,30 +119,35 @@ class Kiwoom(QAxWidget):
         except AttributeError:
             pass
     
-    def _receive_real_data(self, code, realtype, realdata):
+    def _receive_real_data(self, codelist, realtype, realdata):
+        print('received real data - : ')
         if realtype == '주식시세':
-            self._realtype_stock_status(code)
+            self._realtype_stock_status(codelist)
         # if realtype == '주식체결':
         #     self._realtype_tr_made(code)
 
-    def _realtype_stock_status(self, code):
-        fid = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
-        add = []
-        for id in fid:
-            add.append(self._get_comm_real_data(code, id))        
-        self.stock_status.append([add])
+    def _realtype_stock_status(self, codelist):
+        fidlist = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
+        add = {}
+        for code in codelist:
+            for fid in fidlist:
+                add = {code : {fid : []}}
+        for fid in fidlist:
+            for code in codelist:
+                add[code][fid].append(self._get_comm_real_data(code, fid))        
+        self.stock_status.append(add)
         print(add)
 
-        if len(self.stock_status) == 5_000:
+        if len(self.stock_status) >= 100_000:
             status = pd.DataFrame(self.stock_status, columns=self.status_column)
             self._data_to_sql('Stock_Status', status)
             self.stock_status = []
         
-    # def _realtype_tr_made(self, code):
+    # def _realtype_tr_made(self, codelist):
     #     fid = [20, 10, 11, 12, 27, 28, 15, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 228, 311, 290, 691, 567, 568, 851]
     #     add = []
     #     for id in fid:
-    #         add.append(self._get_comm_real_data(code, id))
+    #         add.append(self._get_comm_real_data(codelist, id))
     #     self.tr_made.append([add])
     #     print(add)
     
@@ -218,9 +226,12 @@ class Kiwoom(QAxWidget):
             self.set_input_value('틱범위', ticktime)
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10079', 'opt10079', 2, '0001')
+            
+    def request_real_data(self, codelist, fidlist, opttype=1, scrno='0001'):
+        self.set_real_data(scrno, codelist, fidlist, opttype)
     
     def _data_to_sql(self, tablename, df):
-        path = r'D:\myProjects\myKiwoom\900310.db'
+        path = r'D:\myprojects\900310.db'
         with sqlite3.connect(path) as file:
             df.to_sql(tablename, file, if_exists='append')
 
@@ -228,7 +239,7 @@ class Kiwoom(QAxWidget):
 def save_in_sq(tablename, df):
     # ticktime = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')    
     # path = f'D:/myProjects/myKiwoom/algotrading_data_{ticktime}.db'
-    path = r'D:\myProjects\myKiwoom\900310.db'
+    path = r'D:\myprojects\900310.db'
     with sqlite3.connect(path) as file: 
         df.to_sql(tablename, file, if_exists='replace')
  
@@ -248,6 +259,10 @@ df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
 save_in_sq('900310_Tick', df)
 kiwoom.reset()
+
+
+fidlist = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
+kiwoom.request_real_data(['900310', '005930'], fidlist)
 
 # plt.plot(df.index[-100:], df.Close[-100:])
 # plt.xticks(rotation=45)
