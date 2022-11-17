@@ -76,6 +76,8 @@ class Kiwoom(QAxWidget):
     
     def set_real_data(self, scrno, codelist, fidlist, opttype):
         self.dynamicCall('SetRealReg(QString, QString, QString, QString)', scrno, codelist, fidlist, opttype)
+        self.real_tr_event_loop = QEventLoop()
+        self.real_tr_event_loop.exec_()
     
     def comm_rq_data(self, rqname, trcode, prenext, scrno):
         self.dynamicCall('CommRQData(QString, QString, int, QString)', rqname, trcode, prenext, scrno)
@@ -120,11 +122,17 @@ class Kiwoom(QAxWidget):
             pass
     
     def _receive_real_data(self, codelist, realtype, realdata):
-        print('received real data - : ')
+        print('\nreceived real data - codelist, realtype, realdata: ', codelist, realtype, realdata.strip())
         if realtype == '주식시세':
             self._realtype_stock_status(codelist)
-        # if realtype == '주식체결':
-        #     self._realtype_tr_made(code)
+        if realtype == '주식체결':
+            self._realtype_tr_made(codelist)
+
+        try:
+            self.real_tr_event_loop.exit()
+
+        except AttributeError:
+            pass
 
     def _realtype_stock_status(self, codelist):
         fidlist = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
@@ -132,8 +140,8 @@ class Kiwoom(QAxWidget):
         for code in codelist:
             for fid in fidlist:
                 add = {code : {fid : []}}
-        for fid in fidlist:
-            for code in codelist:
+        for code in codelist:
+            for fid in fidlist:
                 add[code][fid].append(self._get_comm_real_data(code, fid))        
         self.stock_status.append(add)
         print(add)
@@ -143,13 +151,22 @@ class Kiwoom(QAxWidget):
             self._data_to_sql('Stock_Status', status)
             self.stock_status = []
         
-    # def _realtype_tr_made(self, codelist):
-    #     fid = [20, 10, 11, 12, 27, 28, 15, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 228, 311, 290, 691, 567, 568, 851]
-    #     add = []
-    #     for id in fid:
-    #         add.append(self._get_comm_real_data(codelist, id))
-    #     self.tr_made.append([add])
-    #     print(add)
+    def _realtype_tr_made(self, codelist):
+        fid = [20, 10, 11, 12, 27, 28, 15, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 228, 311, 290, 691, 567, 568, 851]
+        add = {}
+        for code in codelist:
+            for fid in fidlist:
+                add = {code : {fid : []}}
+        for code in codelist:
+            for fid in fidlist:
+                add[code][fid].append(self._get_comm_real_data(code, fid))        
+        self.stock_status.append(add)
+        print(add)
+
+        if len(self.stock_status) >= 100_000:
+            status = pd.DataFrame(self.stock_status, columns=self.status_column)
+            self._data_to_sql('Stock_Status', status)
+            self.stock_status = []
     
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
@@ -201,6 +218,11 @@ class Kiwoom(QAxWidget):
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
+    def _data_to_sql(self, tablename, df):
+        path = r'D:\myprojects\900310.db'
+        with sqlite3.connect(path) as file:
+            df.to_sql(tablename, file, if_exists='append')
+
     def request_daily_chart(self, stockcode, date, pricetype=1):
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('기준일자', date)
@@ -227,13 +249,10 @@ class Kiwoom(QAxWidget):
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10079', 'opt10079', 2, '0001')
             
-    def request_real_data(self, codelist, fidlist, opttype=1, scrno='0001'):
+    def request_real_data(self, codelist, fidlist, opttype='1', scrno='0001'):
         self.set_real_data(scrno, codelist, fidlist, opttype)
     
-    def _data_to_sql(self, tablename, df):
-        path = r'D:\myprojects\900310.db'
-        with sqlite3.connect(path) as file:
-            df.to_sql(tablename, file, if_exists='append')
+
 
 
 def save_in_sq(tablename, df):
@@ -247,7 +266,7 @@ app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
 
-kiwoom.request_daily_chart('900310', '20170224')
+kiwoom.request_daily_chart('900310', '20220101')
 df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
 save_in_sq('900310_Daily', df)
@@ -260,9 +279,8 @@ print(df)
 save_in_sq('900310_Tick', df)
 kiwoom.reset()
 
-
 fidlist = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
-kiwoom.request_real_data(['900310', '005930'], fidlist)
+kiwoom.request_real_data(['005930'], fidlist)
 
 # plt.plot(df.index[-100:], df.Close[-100:])
 # plt.xticks(rotation=45)
