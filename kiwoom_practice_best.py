@@ -179,11 +179,11 @@ class Kiwoom(QAxWidget):
             self.real_data['주식시세'][code].append(add)
         print(add)
 
-        if len(self.real_data['주식시세']) >= 100_000:
-            for code in codelist:                
+        for code in codelist:
+            if len(self.real_data['주식시세'][code]) >= 100_000:                               
                 df = pd.DataFrame(self.real_data['주식시세'][code])
                 self._real_data_to_sql('주식시세', code, df, if_exists='append')
-            self.real_data['주식시세'] = {}
+                self.real_data['주식시세'][code] = {}
         
     def _realtype_stock_made(self, codelist): 
         add = {}
@@ -197,11 +197,11 @@ class Kiwoom(QAxWidget):
             self.real_data['주식체결'][code].append(add)      
         print(add)
 
-        if len(self.real_data['주식체결']) >= 100_000:
-            for code in codelist:
+        for code in codelist:
+            if len(self.real_data['주식체결'][code]) >= 100_000:              
                 df = pd.DataFrame(self.real_data['주식체결'][code])
                 self._real_data_to_sql('주식체결', code, df, if_exists='append')
-            self.real_data['주식체결'] = {}
+                self.real_data['주식체결'][code] = {}
         
     def _realtype_order_made(self, codelist):
         add = {}
@@ -215,12 +215,11 @@ class Kiwoom(QAxWidget):
             self.real_data['주문체결'][code].append(add)      
         print(add)
 
-        if len(self.real_data['주문체결']) >= 100_000:
-            for code in codelist:
+        for code in codelist:
+            if len(self.real_data['주문체결'][code]) >= 100_000:
                 df = pd.DataFrame(self.real_data['주문체결'][code])
                 self._real_data_to_sql('주문체결', code, df, if_exists='append')
-            self.real_data['주문체결'] = {}
-         
+                self.real_data['주문체결'][code] = {}
     
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
