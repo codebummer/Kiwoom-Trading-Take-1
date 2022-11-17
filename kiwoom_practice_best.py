@@ -4,10 +4,11 @@ from PyQt5.QtCore import *
 import sqlite3
 import pandas as pd
 import time
-import sys
+import sys, os
 from datetime import datetime
-# import matplotlib.pyplot as plt
 
+# import matplotlib.pyplot as plt
+os.chdir(r'D:\myProjects\TradingDB')
 TR_REQ_TIME_INTERVAL = 0.2
 
 class Kiwoom(QAxWidget):
@@ -29,13 +30,42 @@ class Kiwoom(QAxWidget):
     def reset(self):
         self.remaining_data = False
         self.ohlcva = {'Date':[], 'Open':[], 'High':[], 'Low':[], 'Close':[], 'Volume':[], 'Amount':[]}
-        self.status_column = ['Current', 'FromYesterday', 'Change%', 'Ask', 'Bid', 'VolumeAccummulated', 
-                            'AmountAccumulated', 'Open', 'High', 'Low', 'PlusMinusFromYesterday',
-                            'VolumeFromYesterday', 'AmountChange', 'AmountChangeRatio', 'TransactionTurnOut',
-                            'TransactionCost', 'MarketCap', 'HighTime', 'LowTime']
-        self.stock_status = []
-        self.tr_made = []
-        # self.stock_status = pd.DataFrame({
+        self.real_data = {'주식시세' : {}, '주식체결' : {}, '주문체결' : {}}
+        self.fidlist = [
+            10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 23, 25, 26, 27, 28, 29, 30, 31, 32, 288,
+            290, 302, 311, 567, 568, 691, 851, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909,
+            910, 911, 912, 913, 914, 915, 919, 920, 921, 922, 923, 938, 939, 9001, 9201, 9203, 9205
+        ]
+
+        self.all_fids = {
+            10:'현재가', 11:'전일대비', 12:'등락율', 13:'누적거래량', 14:'누적거래대금', 15:'거래량',
+            16:'시가', 17:'고가', 18:'저가', 20:'체결시간', 23:'거래비용', 25:'전일대비기호', 26:'전일대비거래량대비',
+            27:'매도호가', 28:'매수호가', 29:'거래대금증감', 30:'전일거래량대비', 31:'거래회전율', 32:'거래비용',
+            288:'체결강도', 290:'장구분', 302:'종목명', 311:'시가총액(억)', 567:'상한가발생시간', 568:'하한가발생시간',
+            691:'KO접근도', 851:'전일동시간거래량비율', 900:'주문수량', 901:'주문가격', 902:'미체결수량', 903:'체결누계금액',
+            904:'원주문번호', 905:'주문구분', 906:'매매구분', 907:'매도수구분', 908:'주문/체결시간', 909:'체결번호',
+            910:'체결가', 911:'체결량', 912:'주문업무분류', 913:'주문상태', 914:'단위체결가', 915:'단위체결량', 919:'거부사유',
+            920:'화면번호', 921:'터미널번호', 922:'신용구분', 923:'대출일', 938:'당일매매수수료', 939:'당일매매세금',
+            9001:'종목코드,업종코드', 9201:'계좌번호', 9203:'주문번호', 9205:'관리자사번'
+        }
+
+        self.fids_dict = {
+            '주식시세' : {10:'현재가', 11:'전일대비', 12:'등락율', 27:'매도호가', 28:'매수호가',
+                        13:'누적거래량', 14:'누적거래대금', 16:'시가', 17:'고가', 18:'저가', 25:'전일대비기호',
+                        26:'전일거래량대비', 29:'거래대금증감', 30:'전일거래량대비' ,31:'거래회전율', 23:'거래비용',
+                        311:'시가총액(억)', 567:'상한가발생시간', 568:'하한가발생시간'},
+            '주식체결' : {20:'체결시간', 10:'현재가', 11:'전일대비', 12:'등락율', 27:'매도호가', 28:'매수호가',
+                        15:'거래량', 13:'누적거래량', 14:'누적거래대금', 16:'시가', 17:'고가', 18:'저가', 25:'전일대비기호',
+                        26:'전일거래량대비', 29:'거래대금증감', 30:'전일거래량대비', 31:'거래회전율', 32:'거래비용', 288:'체결강도',
+                        311:'시가총액(억)', 290:'장구분', 691:'KO접근도', 567:'상한가발생시간', 568:'하한가발생시간', 851:'전일동시간거래량비율'},
+            '주문체결' : {9201:'계좌번호', 9203:'주문번호', 9205:'관리자사번', 9001:'종목코드,업종코드', 912:'주문업무분류',
+                        913:'주문상태', 302:'종목명', 900:'주문수량', 901:'주문가격', 902:'미체결수량', 903:'체결누계금액',
+                        904:'원주문번호', 905:'주문구분', 906:'매매구분', 907:'매도수구분', 908:'주문/체결시간', 909:'체결번호', 
+                        910:'체결가', 911:'체결량', 10:'현재가', 27:'매도호가', 28:'매수호가', 914:'단위체결가', 915:'단위체결량',
+                        938:'당일매매수수료', 939:'당일매매세금', 919:'거부사유', 920:'화면번호', 921:'터미널번호', 922:'신용구분', 923:'대출일'}
+        }
+
+        # self.real_data = pd.DataFrame({
         #     'Current' : [],
         #     'FromYesterday' : [],
         #     'Change%' : [],
@@ -122,11 +152,14 @@ class Kiwoom(QAxWidget):
             pass
     
     def _receive_real_data(self, codelist, realtype, realdata):
-        print('\nreceived real data - codelist, realtype, realdata: ', codelist, realtype, realdata.strip())
+        print('\nreceived real data - codelist, realtype, realdata: ', codelist, realtype, [realdata.split()])
         if realtype == '주식시세':
             self._realtype_stock_status(codelist)
-        if realtype == '주식체결':
-            self._realtype_tr_made(codelist)
+        elif realtype == '주식체결':
+            self._realtype_stock_made(codelist)
+        elif realtype == '주문체결':
+            self._realtype_order_made(codelist)
+
 
         try:
             self.real_tr_event_loop.exit()
@@ -135,38 +168,59 @@ class Kiwoom(QAxWidget):
             pass
 
     def _realtype_stock_status(self, codelist):
-        fidlist = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
         add = {}
+        fidlist = self.fids_dict['주식시세']
         for code in codelist:
-            for fid in fidlist:
-                add = {code : {fid : []}}
+            for fidname in fidlist.values():
+                add = {code : {fidname : []}}
         for code in codelist:
-            for fid in fidlist:
-                add[code][fid].append(self._get_comm_real_data(code, fid))        
-        self.stock_status.append(add)
+            for fid, fidname in fidlist.items():
+                add[code][fidname].append(self._get_comm_real_data(code, fid))        
+            self.real_data['주식시세'][code].append(add)
         print(add)
 
-        if len(self.stock_status) >= 100_000:
-            status = pd.DataFrame(self.stock_status, columns=self.status_column)
-            self._data_to_sql('Stock_Status', status)
-            self.stock_status = []
+        if len(self.real_data['주식시세']) >= 100_000:
+            for code in codelist:                
+                df = pd.DataFrame(self.real_data['주식시세'][code])
+                self._real_data_to_sql('주식시세', code, df, if_exists='append')
+            self.real_data['주식시세'] = {}
         
-    def _realtype_tr_made(self, codelist):
-        fid = [20, 10, 11, 12, 27, 28, 15, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 228, 311, 290, 691, 567, 568, 851]
+    def _realtype_stock_made(self, codelist): 
         add = {}
+        fidlist = self.fids_dict['주식체결']
         for code in codelist:
-            for fid in fidlist:
-                add = {code : {fid : []}}
+            for fidname in fidlist.values():
+                add = {code : {fidname : []}}
         for code in codelist:
-            for fid in fidlist:
-                add[code][fid].append(self._get_comm_real_data(code, fid))        
-        self.stock_status.append(add)
+            for fid, fidname in fidlist.items():
+                add[code][fidname].append(self._get_comm_real_data(code, fid))
+            self.real_data['주식체결'][code].append(add)      
         print(add)
 
-        if len(self.stock_status) >= 100_000:
-            status = pd.DataFrame(self.stock_status, columns=self.status_column)
-            self._data_to_sql('Stock_Status', status)
-            self.stock_status = []
+        if len(self.real_data['주식체결']) >= 100_000:
+            for code in codelist:
+                df = pd.DataFrame(self.real_data['주식체결'][code])
+                self._real_data_to_sql('주식체결', code, df, if_exists='append')
+            self.real_data['주식체결'] = {}
+        
+    def _realtype_order_made(self, codelist):
+        add = {}
+        fidlist = self.fids_dict['주문체결']
+        for code in codelist:
+            for fidname in fidlist.values():
+                add = {code : {fidname : []}}
+        for code in codelist:
+            for fid, fidname in fidlist.items():
+                add[code][fidname].append(self._get_comm_real_data(code, fid))
+            self.real_data['주문체결'][code].append(add)      
+        print(add)
+
+        if len(self.real_data['주문체결']) >= 100_000:
+            for code in codelist:
+                df = pd.DataFrame(self.real_data['주문체결'][code])
+                self._real_data_to_sql('주문체결', code, df, if_exists='append')
+            self.real_data['주문체결'] = {}
+         
     
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
@@ -218,9 +272,12 @@ class Kiwoom(QAxWidget):
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
-    def _data_to_sql(self, tablename, df):
-        path = r'D:\myprojects\900310.db'
-        with sqlite3.connect(path) as file:
+    def static_data_to_sql(self, tablename, filename, df):
+        with sqlite3.connect(filename) as file:
+            df.to_sql(tablename, file, if_exists='append')
+
+    def _real_data_to_sql(self, tablename, filename, df):
+        with sqlite3.connect(filename) as file:
             df.to_sql(tablename, file, if_exists='append')
 
     def request_daily_chart(self, stockcode, date, pricetype=1):
@@ -252,15 +309,6 @@ class Kiwoom(QAxWidget):
     def request_real_data(self, codelist, fidlist, opttype='1', scrno='0001'):
         self.set_real_data(scrno, codelist, fidlist, opttype)
     
-
-
-
-def save_in_sq(tablename, df):
-    # ticktime = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')    
-    # path = f'D:/myProjects/myKiwoom/algotrading_data_{ticktime}.db'
-    path = r'D:\myprojects\900310.db'
-    with sqlite3.connect(path) as file: 
-        df.to_sql(tablename, file, if_exists='replace')
  
 app = QApplication(sys.argv)
 
@@ -269,18 +317,18 @@ kiwoom = Kiwoom()
 kiwoom.request_daily_chart('900310', '20220101')
 df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
-save_in_sq('900310_Daily', df)
+kiwoom.static_data_to_sql('900310_Daily', '900310_Daily', df)
 kiwoom.reset()
 df = pd.DataFrame()
 
 kiwoom.request_tick_chart('900310')
 df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
 print(df)
-save_in_sq('900310_Tick', df)
+kiwoom.static_data_to_sql('900310_Tick', '900310_Tick', df)
 kiwoom.reset()
 
-fidlist = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 311, 567, 568]
-kiwoom.request_real_data(['005930'], fidlist)
+
+kiwoom.request_real_data(['900310', '005930', '005380'], kiwoom.fidlist)
 
 # plt.plot(df.index[-100:], df.Close[-100:])
 # plt.xticks(rotation=45)
@@ -289,3 +337,19 @@ kiwoom.request_real_data(['005930'], fidlist)
 
 
 
+# # The following is part of a script to extract all fid list from above used variables
+# a = [10, 11, 12, 27, 28, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 23, 311, 567, 568, 20, 10, 11, 12, 27, 28, 15, 13, 14, 16, 17, 18, 25, 26, 29, 30, 31, 32, 288, 311, 290, 691, 567, 568, 851, 9201, 9203, 9205, 9001, 912, 913, 302, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 10, 27, 28, 914, 915, 938, 939, 919, 920, 921, 922, 923]
+# seen = set()
+# unique = set()
+# for x in a:
+#     if x == seen:
+#         seen.add(x)
+#     else:
+#         unique.add(x)
+# seen
+# unique = list(unique)
+# unique.sort()
+# unique
+
+# fidlist = [10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 23, 25, 26, 27, 28, 29, 30, 31, 32, 288, 290, 302, 311, 567, 568, 691, 851, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912, 913, 914, 915, 919, 920, 921, 922, 923, 938, 939, 9001, 9201, 9203, 9205]
+# len(fidlist)
