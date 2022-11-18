@@ -7,6 +7,7 @@ import time
 import sys, os
 from datetime import datetime
 
+
 # import matplotlib.pyplot as plt
 os.chdir(r'D:\myProjects\TradingDB')
 TR_REQ_TIME_INTERVAL = 0.2
@@ -15,6 +16,7 @@ class Kiwoom(QAxWidget):
     def __init__(self):
         super().__init__()
         
+        self.fidlist = []
         self.reset()
         self.OCX_available()      
         self._event_handlers()
@@ -29,7 +31,7 @@ class Kiwoom(QAxWidget):
 
     def reset(self):
         self.remaining_data = False
-        self.ohlcva = {'Date':[], 'Open':[], 'High':[], 'Low':[], 'Close':[], 'Volume':[], 'Amount':[]}
+        self.ohlcva = {'일자':[], '시가':[], '고가':[], '저가':[], '현재가':[], '거래량':[], '거래대금':[]}
         self.real_data = {'주식시세' : {}, '주식체결' : {}, '주문체결' : {}}
         self.fidlist = [
             10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 23, 25, 26, 27, 28, 29, 30, 31, 32, 288,
@@ -86,7 +88,47 @@ class Kiwoom(QAxWidget):
         #     'HighTime' : [],
         #     'LowTime' : []
         # })
+        
+    def _login(self):
+        self.dynamicCall('CommConnect')
+        self.login_loop = QEventLoop()
+        self.login_loop.exec_()
 
+    def _event_handlers(self):
+        self.OnEventConnect.connect(self._comm_connect_event)
+        self.OnReceiveTrData.connect(self._receive_tr_data)
+        self.OnReceiveRealData.connect(self._receive_real_data)
+        # self.OnReceiveChejanData(self._receive_chejan_data)
+    
+    def _comm_connect_event(self, err_code):
+        if err_code == 0:
+            print('Successfully logged in')
+           
+        self.login_loop.exit()
+        print('Login loop exited')
+        
+    # def _db_connect(self, filename):
+    #     try:
+    #         return sqlite3.connect(filename)            
+    #     except ConnectionRefusedError:
+    #         print('Connection to Database is Refuesed')            
+    
+    def static_data_to_sql(self, tablename, filename, df):
+        with sqlite3.connect(filename) as file:
+            df.to_sql(tablename, file, if_exists='append')
+
+    # def _real_data_to_sql(self, tablename, filename, df):
+    #     with sqlite3.connect(filename) as file:
+    #         df.to_sql(tablename, file, if_exists='append')
+            
+    def _real_data_dictionary_to_sql(self, tablename, filename, data):
+        with sqlite3.connect(filename) as file:
+            cursor = file.cursor()              
+            keys = ','.join(data.keys())
+            qmarks = ','.join(list('?'*len(data.keys())))
+            values = tuple(data.values())
+            print('\n\nkeys: ', keys, '\n\nvalues: ', values)
+            cursor.execute('INSERT INTO '+tablename+' ('+keys+') VALUES ('+qmarks+')', values)
 
     def account_info(self):
         account_num = self.dynamicCall('GetLoginInfo(QString)', ['ACCNO'])
@@ -105,30 +147,25 @@ class Kiwoom(QAxWidget):
         self.dynamicCall('SetInputValue(QString, QString)', tr_name, tr_value)
     
     def set_real_data(self, scrno, codelist, fidlist, opttype):
-        self.dynamicCall('SetRealReg(QString, QString, QString, QString)', scrno, codelist, fidlist, opttype)
-        self.real_tr_event_loop = QEventLoop()
-        self.real_tr_event_loop.exec_()
+        print('\n\ncodelist in set_real_data: ', codelist)
+        for code in codelist:
+            self.dynamicCall('SetRealReg(QString, QString, QString, QString)', scrno, code, fidlist, opttype)
+        self._tr_event_loop_exec()
     
     def comm_rq_data(self, rqname, trcode, prenext, scrno):
         self.dynamicCall('CommRQData(QString, QString, int, QString)', rqname, trcode, prenext, scrno)
+        self._tr_event_loop_exec()
+        
+    def comm_kw_rq_data(self, arrcode, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0001'):
+        self.dynamicCall('CommKwRqData(QString, int, int, int, QString, QString)', arrcode, prenext, codecnt, typeflag, rqname, scrno)
+        self._tr_event_loop_exec()
+        
+    def _tr_event_loop_exec(self):
         self.tr_event_loop = QEventLoop()
         self.tr_event_loop.exec_()
-
-    def _login(self):
-        self.dynamicCall('CommConnect')
-        self.login_loop = QEventLoop()
-        self.login_loop.exec_()
-
-    def _event_handlers(self):
-        self.OnEventConnect.connect(self._comm_connect_event)
-        self.OnReceiveTrData.connect(self._receive_tr_data)
-        self.OnReceiveRealData.connect(self._receive_real_data)
     
-    def _comm_connect_event(self, err_code):
-        if err_code == 0:
-            print('Successfully logged in')
-        self.login_loop.exit()
-        print('Login loop exited')
+    def _tr_event_loop_exit(self):
+        self.tr_event_loop.exit()
     
     def _receive_tr_data(self, scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4):
         if prenext == 2:
@@ -144,82 +181,148 @@ class Kiwoom(QAxWidget):
             print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
                  scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)
             self._opt10079(rqname, trcode)
+        # elif rqname == 'OPTKWFID':
+        #     self._optkwfid(trcode)
 
         try:
-            self.tr_event_loop.exit()
+            self._tr_event_loop_exit()
 
         except AttributeError:
             pass
     
-    def _receive_real_data(self, codelist, realtype, realdata):
-        print('\nreceived real data - codelist, realtype, realdata: ', codelist, realtype, [realdata.split()])
+    def _receive_real_data(self, code, realtype, realdata):
+        print('\nreceived real data - code, realtype, realdata: ', code, realtype, realdata.split())
         if realtype == '주식시세':
-            self._realtype_stock_status(codelist)
+            self._realtype_stock_status(code)
         elif realtype == '주식체결':
-            self._realtype_stock_made(codelist)
+            self._realtype_stock_made(code)
         elif realtype == '주문체결':
-            self._realtype_order_made(codelist)
+            self._realtype_order_made(code)
 
 
-        try:
-            self.real_tr_event_loop.exit()
+        # try:
+        #     self._tr_event_loop_exit()
 
-        except AttributeError:
-            pass
+        # except AttributeError:
+        #     pass
+        
+    # def _receive_chejan_data(self, gubun, itemcnt, fidlist):
+    #     if gubun == 0: #order placed and made 
+    #         self._real_chejan_placed_made(itemcnt, fidlist)
+    #     elif gubun == 1:
+    #         self._domestic_balance_change()
+        
 
-    def _realtype_stock_status(self, codelist):
-        add = {}
+    def _realtype_stock_status(self, code):
+        add= {}
         fidlist = self.fids_dict['주식시세']
-        for code in codelist:
-            for fidname in fidlist.values():
-                add = {code : {fidname : []}}
-        for code in codelist:
-            for fid, fidname in fidlist.items():
-                add[code][fidname].append(self._get_comm_real_data(code, fid))        
-            self.real_data['주식시세'][code].append(add)
-        print(add)
+        for fidname in fidlist.values():
+            # add[code][fidname] = []
+            add[fidname] = ''
 
-        for code in codelist:
-            if len(self.real_data['주식시세'][code]) >= 100_000:                               
-                df = pd.DataFrame(self.real_data['주식시세'][code])
-                self._real_data_to_sql('주식시세', code, df, if_exists='append')
-                self.real_data['주식시세'][code] = {}
+        for fid, fidname in fidlist.items():
+            # add[code][fidname].append(self._get_comm_real_data(code, fid))   
+            add[fidname] = self._get_comm_real_data(code, fid)
+        # self.real_data['주식시세'][code].append(add[code])
+        self.real_data['주식시세'][code] = add
+        print('\n\nself.real_data[주식시세]', self.real_data['주식시세'])
+
+        # for code in codelist:
+        #     # if len(self.real_data['주식시세'][code]) >= 100:  
+        #     print('\nreal_data[주식시세]: ', self.real_data['주식시세'], '\nreal_data[주식시세][code]: ', self.real_data['주식시세'][code])
+        #     df = pd.DataFrame(self.real_data['주식시세'][code])
+        #     self._real_data_to_sql('주식시세', code+'주식시세', df, if_exists='append')
+        #     self.real_data['주식시세'][code] = {}
+
+
+        # print('\n\nreal_data[주식시세][code]: ', self.real_data['주식시세'][code])
+        self._real_data_dictionary_to_sql('주식시세', code+'.db', self.real_data['주식시세'][code])
+        self.real_data['주식시세'][code] = {}
+    
+    # def _realtype_stock_made(self, codelist): 
+    #     add = {}
+    #     fidlist = self.fids_dict['주식체결']
+    #     for code in codelist:
+    #         add[code] = {}
+    #         for fidname in fidlist.values():
+    #             add[code][fidname] = ''
+    #     # print('\ncodelist, fidlist, add: ', codelist, fidlist, add)
+    #     for code in codelist:
+    #         for fid, fidname in fidlist.items():
+    #             add[code][fidname] = self._get_comm_real_data(code, fid)
+    #             # print(add[code])
+    #         # self.real_data['주식체결'][code].append(add[code])      
+    #         self.real_data['주식체결'][code] = add[code]
+    #     print('\n\nself.real_data[주식체결]', self.real_data['주식체결'])
+
+    #     # for code in codelist:
+    #     #     # if len(self.real_data['주식체결'][code]) >= 100:      
+    #     #     print('\nreal_data[주식체결]: ', self.real_data['주식체결'], '\nreal_data[주식체결][code]: ', self.real_data['주식체결'][code])        
+    #     #     df = pd.DataFrame(self.real_data['주식체결'][code])
+    #     #     self._real_data_to_sql('주식체결', code+'주식체결', df, if_exists='append')
+    #     #     self.real_data['주식체결'][code] = {}
         
-    def _realtype_stock_made(self, codelist): 
-        add = {}
+    #     for code in codelist:
+    #         # print('\n\nreal_data[주식체결][code]: ', self.real_data['주식체결'][code])
+    #         self._real_data_dictionary_to_sql('주식체결', code+'.db', self.real_data['주식체결'][code])
+    #         self.real_data['주식체결'][code] = {}
+    def _realtype_stock_made(self, code): 
+        add= {}
         fidlist = self.fids_dict['주식체결']
-        for code in codelist:
-            for fidname in fidlist.values():
-                add = {code : {fidname : []}}
-        for code in codelist:
-            for fid, fidname in fidlist.items():
-                add[code][fidname].append(self._get_comm_real_data(code, fid))
-            self.real_data['주식체결'][code].append(add)      
-        print(add)
+        for fidname in fidlist.values():
+            add[fidname] = ''
 
-        for code in codelist:
-            if len(self.real_data['주식체결'][code]) >= 100_000:              
-                df = pd.DataFrame(self.real_data['주식체결'][code])
-                self._real_data_to_sql('주식체결', code, df, if_exists='append')
-                self.real_data['주식체결'][code] = {}
+        for fid, fidname in fidlist.items():
+            add[fidname] = self._get_comm_real_data(code, fid)
+        self.real_data['주식체결'][code] = add
+        print('\n\nself.real_data[주식체결]', self.real_data['주식체결'])
+
+        self._real_data_dictionary_to_sql('주식체결', code+'.db', self.real_data['주식체결'][code])
+        self.real_data['주식체결'][code] = {}
+            
+    # def _realtype_order_made(self, codelist):
+    #     add = {}
+    #     fidlist = self.fids_dict['주문체결']
+    #     for code in codelist:
+    #         add[code] = {}
+    #         for fidname in fidlist.values():
+    #             add[code][fidname] = ''
+    #     # print('\ncodelist, fidlist, add: ', codelist, fidlist, add)
+    #     for code in codelist:
+    #         for fid, fidname in fidlist.items():
+    #             add[code][fidname] = self._get_comm_real_data(code, fid)
+    #             # print(add[code])
+    #         # self.real_data['주문체결'][code].append(add[code])      
+    #         self.real_data['주문체결'][code] = add[code]      
         
-    def _realtype_order_made(self, codelist):
-        add = {}
-        fidlist = self.fids_dict['주문체결']
-        for code in codelist:
-            for fidname in fidlist.values():
-                add = {code : {fidname : []}}
-        for code in codelist:
-            for fid, fidname in fidlist.items():
-                add[code][fidname].append(self._get_comm_real_data(code, fid))
-            self.real_data['주문체결'][code].append(add)      
-        print(add)
+    #     print('\n\nself.real_data[주문체결]', self.real_data['주문체결'])
 
-        for code in codelist:
-            if len(self.real_data['주문체결'][code]) >= 100_000:
-                df = pd.DataFrame(self.real_data['주문체결'][code])
-                self._real_data_to_sql('주문체결', code, df, if_exists='append')
-                self.real_data['주문체결'][code] = {}
+    #     # for code in codelist:
+    #     #     # if len(self.real_data['주문체결'][code]) >= 100:
+    #     #     print('\nreal_data[주문체결]: ', self.real_data['주문체결'], '\nreal_data[주문체결][code]: ', self.real_data['주문체결'][code])        
+    #     #     df = pd.DataFrame(self.real_data['주문체결'][code])
+    #     #     self._real_data_to_sql('주문체결', code+'주문체결', df, if_exists='append')
+    #     #     self.real_data['주문체결'][code] = {}
+
+    #     for code in codelist:
+    #         # print('\n\nreal_data[주문체결][code]: ', self.real_data['주문체결'][code])
+    #         self._real_data_dictionary_to_sql('주문체결', code+'.db', self.real_data['주문체결'][code])
+    #         self.real_data['주문체결'][code] = {}
+
+    def _realtype_order_made(self, code):
+  
+        add= {}
+        fidlist = self.fids_dict['주문체결']
+        for fidname in fidlist.values():
+            add[fidname] = ''
+
+        for fid, fidname in fidlist.items():
+            add[fidname] = self._get_comm_real_data(code, fid)
+        self.real_data['주문체결'][code] = add
+        print('\n\nself.real_data[주문체결]', self.real_data['주문체결'])
+
+        self._real_data_dictionary_to_sql('주문체결', code+'.db', self.real_data['주문체결'][code])
+        self.real_data['주문체결'][code] = {}
     
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
@@ -227,6 +330,12 @@ class Kiwoom(QAxWidget):
     def _get_repeat_cont(self, trcode, recordname):   
         print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
         return self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
+    
+    def _real_chejan_placed_made(self, itemcnt, fidlist):        
+        for idx in itemcnt:
+            for fid in fidlist:
+                print(self.dynamicCall('GetChejanData(int)', fid))
+                
 
     def _opt10081(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
@@ -240,13 +349,13 @@ class Kiwoom(QAxWidget):
             volume = self._get_comm_data(trcode, rqname, idx, '거래량')
             amount = self._get_comm_data(trcode, rqname, idx, '거래대금')
 
-            self.ohlcva['Date'].append(date)
-            self.ohlcva['Open'].append(int(open))
-            self.ohlcva['High'].append(int(high))
-            self.ohlcva['Low'].append(int(low))
-            self.ohlcva['Close'].append(int(close))
-            self.ohlcva['Volume'].append(int(volume))
-            self.ohlcva['Amount'].append(int(amount))
+            self.ohlcva['일자'].append(date)
+            self.ohlcva['시가'].append(int(open))
+            self.ohlcva['고가'].append(int(high))
+            self.ohlcva['저가'].append(int(low))
+            self.ohlcva['현재가'].append(int(close))
+            self.ohlcva['거래량'].append(int(volume))
+            self.ohlcva['거래대금'].append(int(amount))
 
     def _opt10079(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식틱차트')   
@@ -259,25 +368,19 @@ class Kiwoom(QAxWidget):
             close = self._get_comm_data(trcode, rqname, idx, '현재가')
             volume = self._get_comm_data(trcode, rqname, idx, '거래량')
 
-            self.ohlcva['Date'].append(date)
-            self.ohlcva['Open'].append(int(open))
-            self.ohlcva['High'].append(int(high))
-            self.ohlcva['Low'].append(int(low))
-            self.ohlcva['Close'].append(int(close))
-            self.ohlcva['Volume'].append(int(volume))
-            self.ohlcva['Amount'].append(None)
-           
+            self.ohlcva['일자'].append(date)
+            self.ohlcva['시가'].append(int(open))
+            self.ohlcva['고가'].append(int(high))
+            self.ohlcva['저가'].append(int(low))
+            self.ohlcva['현재가'].append(int(close))
+            self.ohlcva['거래량'].append(int(volume))
+            self.ohlcva['거래대금'].append(None)
+    
+    # def _optkwfid(self, trcode):
+        
 
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
-
-    def static_data_to_sql(self, tablename, filename, df):
-        with sqlite3.connect(filename) as file:
-            df.to_sql(tablename, file, if_exists='append')
-
-    def _real_data_to_sql(self, tablename, filename, df):
-        with sqlite3.connect(filename) as file:
-            df.to_sql(tablename, file, if_exists='append')
 
     def request_daily_chart(self, stockcode, date, pricetype=1):
         self.set_input_value('종목코드', stockcode)
@@ -314,16 +417,16 @@ app = QApplication(sys.argv)
 kiwoom = Kiwoom()
 
 kiwoom.request_daily_chart('900310', '20220101')
-df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
+df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['일자'])
 print(df)
-kiwoom.static_data_to_sql('900310_Daily', '900310_Daily', df)
+kiwoom.static_data_to_sql('900310_Daily', '900310_Daily.db', df)
 kiwoom.reset()
 df = pd.DataFrame()
 
 kiwoom.request_tick_chart('900310')
-df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['Date'])
+df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['일자'])
 print(df)
-kiwoom.static_data_to_sql('900310_Tick', '900310_Tick', df)
+kiwoom.static_data_to_sql('900310_Tick', '900310_Tick.db', df)
 kiwoom.reset()
 
 
