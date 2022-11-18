@@ -8,7 +8,7 @@ import sys, os
 from datetime import datetime
 # import matplotlib.pyplot as plt
 
-os.chdir(r'D:\myProjects\TradingDB')
+os.chdir(r'D:\myProjects\TradingDB') #change the current working directory
 TR_REQ_TIME_INTERVAL = 0.2
 
 class Kiwoom(QAxWidget):
@@ -17,7 +17,6 @@ class Kiwoom(QAxWidget):
         
         self.fidlist = []
         self.real_tr_data ={}
-        # self.real_tr_stocks = set() #list of dataframes that will be created to store real time data
         self.reset()
         self.OCX_available()      
         self._event_handlers()
@@ -31,26 +30,7 @@ class Kiwoom(QAxWidget):
 
     def reset(self):
         self.remaining_data = False
-        self.ohlcva = {'일자':[], '시가':[], '고가':[], '저가':[], '현재가':[], '거래량':[], '거래대금':[]}
-        # self.real_data = {'주식시세' : {}, '주식체결' : {}, '주문체결' : {}}
-        self.fidlist = [
-            10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 23, 25, 26, 27, 28, 29, 30, 31, 32, 288,
-            290, 302, 311, 567, 568, 691, 851, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909,
-            910, 911, 912, 913, 914, 915, 919, 920, 921, 922, 923, 938, 939, 9001, 9201, 9203, 9205
-        ]
-
-        self.all_fids = {
-            10:'현재가', 11:'전일대비', 12:'등락율', 13:'누적거래량', 14:'누적거래대금', 15:'거래량',
-            16:'시가', 17:'고가', 18:'저가', 20:'체결시간', 23:'거래비용', 25:'전일대비기호', 26:'전일대비거래량대비',
-            27:'매도호가', 28:'매수호가', 29:'거래대금증감', 30:'전일거래량대비', 31:'거래회전율', 32:'거래비용',
-            288:'체결강도', 290:'장구분', 302:'종목명', 311:'시가총액(억)', 567:'상한가발생시간', 568:'하한가발생시간',
-            691:'KO접근도', 851:'전일동시간거래량비율', 900:'주문수량', 901:'주문가격', 902:'미체결수량', 903:'체결누계금액',
-            904:'원주문번호', 905:'주문구분', 906:'매매구분', 907:'매도수구분', 908:'주문/체결시간', 909:'체결번호',
-            910:'체결가', 911:'체결량', 912:'주문업무분류', 913:'주문상태', 914:'단위체결가', 915:'단위체결량', 919:'거부사유',
-            920:'화면번호', 921:'터미널번호', 922:'신용구분', 923:'대출일', 938:'당일매매수수료', 939:'당일매매세금',
-            9001:'종목코드,업종코드', 9201:'계좌번호', 9203:'주문번호', 9205:'관리자사번'
-        }
-
+        self.ohlcva = {'일자':[], '시가':[], '고가':[], '저가':[], '현재가':[], '거래량':[], '거래대금':[]} 
         self.fids_dict = {
             '주식시세' : {10:'현재가', 11:'전일대비', 12:'등락율', 27:'매도호가', 28:'매수호가',
                         13:'누적거래량', 14:'누적거래대금', 16:'시가', 17:'고가', 18:'저가', 25:'전일대비기호',
@@ -197,7 +177,8 @@ class Kiwoom(QAxWidget):
         
         df_name, df = self._df_generator('주식시세', code, add)
         if len(df) > 1_000:
-            self._real_data_to_sql('주식시세', f'{df_name}.db', df)
+            # self._real_data_to_sql('주식시세', f'{df_name}.db', df)
+            self._real_data_to_sql('주식시세', df_name+'.db', df)            
             self.real_tr_data[df_name] = pd.DataFrame()
  
     def _realtype_stock_made(self, code): 
@@ -209,7 +190,7 @@ class Kiwoom(QAxWidget):
         
         df_name, df = self._df_generator('주식체결', code, add)
         if len(df) > 1_000:
-            self._real_data_to_sql('주식체결', f'{df_name}.db', df)
+            self._real_data_to_sql('주식체결', df_name+'.db', df)
             self.real_tr_data[df_name] = pd.DataFrame()
  
     def _realtype_order_made(self, code):
@@ -221,7 +202,7 @@ class Kiwoom(QAxWidget):
         
         df_name, df = self._df_generator('주문체결', code, add)
         if len(df) > 1_000:
-            self._real_data_to_sql('주문체결', f'{df_name}.db', df)
+            self._real_data_to_sql('주문체결', df_name+'.db', df)
             self.real_tr_data[df_name] = pd.DataFrame()
 
     def _df_generator(self, realtype, stockcode, data):
