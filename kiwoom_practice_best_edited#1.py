@@ -137,10 +137,11 @@ class Kiwoom(QAxWidget):
         self._event_loop_exec('big')
         
     def _event_loop_exec(self, loopname):
-        exec(f'{loopname} = QEventLoop()\{loopname}.exec_()')
+        exec(f'self.{loopname} = QEventLoop()')
+        exec(f'self.{loopname}.exec_()')
     
     def _event_loop_exit(self, loopname):
-        exec(f'{loopname}.exit()')
+        exec(f'self.{loopname}.exit()')
     
     def _receive_tr_data(self, scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4):
         if prenext == 2:
