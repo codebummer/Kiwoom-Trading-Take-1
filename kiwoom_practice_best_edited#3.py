@@ -24,7 +24,7 @@ class Kiwoom(QAxWidget):
         self._login()
         
         self.account_info()
-        self.KOSPI_list = self.stock_ticker()        
+        self.all_stocks = self.stock_ticker()        
 
     def OCX_available(self):
         self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
@@ -84,12 +84,13 @@ class Kiwoom(QAxWidget):
         print(account_num.strip(';'))
 
     def stock_ticker(self):
-        response = self.dynamicCall('GetCodeListByMarket(QString)', ['0'])
+        response = self.dynamicCall('GetCodeListByMarket(QString)', ['']) # '' means all markets. '0' means KOSPI. '10' means KOSDAQ.
         tickers = response.split(';')
         stock_list = {}
         for ticker in tickers:
             stock = self.dynamicCall('GetMasterCodeName(QString)', [ticker])
             stock_list[ticker] = [stock]
+            stock_list[stock] = ticker
         return stock_list
     
     def set_input_value(self, tr_name, tr_value):
@@ -134,7 +135,7 @@ class Kiwoom(QAxWidget):
         elif rqname == 'OPTKWFID':
             print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
                  scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)            
-            # self._optkwfid(trcode)
+            self._optkwfid(trcode)
 
         try:
             self._event_loop_exit('tr')
@@ -144,11 +145,13 @@ class Kiwoom(QAxWidget):
     
     def _receive_real_data(self, code, realtype, realdata):
         if realtype == '주식시세':
-            self._realtype_stock_status(code)
+            self._realtype_stock_status(code)            
         elif realtype == '주식체결':
-            self._realtype_stock_made(code)
+            self._realtype_stock_made(code)            
         elif realtype == '주문체결':
             self._realtype_order_made(code)
+        
+
 
         # try:
         #     self._event_loop_exit('real')
@@ -263,16 +266,67 @@ class Kiwoom(QAxWidget):
             self.ohlcva['거래량'].append(int(volume))
             self.ohlcva['거래대금'].append(None)
     
-    # def _optkwfid(self, trcode):
-    #     data_cnt = self._get_repeat_cont(trcode, '관심종목')
+    def _optkwfid(self, trcode):
+        data_cnt = self._get_repeat_cont(trcode, '관심종목')
         
-    #     for idx in range(data_cnt):
-    #         code = self._get_comm_data(trcode, 'OPTKWFID', idx, '종목코드')
-    #         name = self._get_comm_data(trcode, 'OPTKWFID', idx, '종목명')
-    #         currnet = self._get_comm_data(trcode, 'OPTKWFID', idx, '현재가')
-    #         criteria = self._get_comm_data(trcode, 'OPTKWFID', idx, '기준가')
-    #         yesterday = self._get_comm_data(trcode, 'OPTKWFID', idx, '전일대비')
-    #         yesterday_sig = self._get_comm_data(tr)
+        add= {}
+        for idx in range(data_cnt):
+            add['종목코드'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종목코드')] #0
+            add['종목명'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종목명')] #1
+            add['현재가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '현재가')]
+            add['기준가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '기준가')]
+            add['전일대비'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일대비')]
+            add['전일대비기호'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일대비기호')]
+            add['등락율'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '등락율')] #6
+            add['거래량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '거래량')]
+            add['거래대금'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '거래대금')]
+            add['체결량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결량')]
+            add['체결강도'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결강도')] #10
+            add['전일거래량대비'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일거래량대비')] #11
+            add['매도호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도호가')]
+            add['매수호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수호가')]
+            add['매도1차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도1차호가')]
+            add['매도2차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도2차호가')]
+            add['매도3차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도3차호가')]
+            add['매도4차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도4차호가')]
+            add['매도5차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도5차호가')]
+            add['매수1차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수1차호가')]
+            add['매수2차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수2차호가')]
+            add['매수3차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수3차호가')]
+            add['매수4차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수4차호가')]
+            add['매수5차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수5차호가')]
+            add['상한가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '상한가')]
+            add['하한가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '하한가')]
+            add['시가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '시가')]
+            add['고가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '고가')]
+            add['저가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '저가')]
+            add['종가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종가')]
+            add['체결시간'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결시간')]
+            add['예상체결가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '예상체결가')]
+            add['예상체결량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '예상체결량')]
+            add['자본금'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '자본금')]
+            add['액면가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '액면가')]
+            add['시가총액'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '시가총액')]
+            add['주식수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '주식수')]
+            add['호가시간'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '호가시간')]
+            add['일자'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '일자')]
+            add['우선매도잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매도잔량')]
+            add['우선매수잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매수잔량')]
+            add['우선매도건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매도건수')]
+            add['우선매수건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매수건수')]
+            add['총매도잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매도잔량')]
+            add['총매수잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매수잔량')]
+            add['총매도건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매도건수')]
+            add['총매수건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매수건수')]
+        
+        # for idx, key in enumerate(add.keys()):
+        #     if idx not in [0, 1]:
+        #         if idx in [6, 10, 11]:
+        #             add[key] = float(add[key][0])
+        #         else:
+        #             add[key] = int(add[key][0])
+        
+        print('\n\nmass request received:\n', add)
  
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
@@ -303,10 +357,18 @@ class Kiwoom(QAxWidget):
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10079', 'opt10079', 2, '0004')
     
-    def request_mass_data(self, arrcode, codecnt, prenext=0):
-        self.comm_kw_rq_data(arrcode, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0005')
+    def request_mass_data(self, stocklist, prenext=0):
+        code_list = ''
+        codecnt = len(stocklist)
+        for idx, stock in enumerate(stocklist):
+            if idx == 0:
+                code_list += self.all_stocks[stock]
+            else:
+                code_list += ';'+self.all_stocks[stock] #CommKwRqData() receives multiple stock tickers as one string separated with ;
+        print(code_list)
+        self.comm_kw_rq_data(code_list, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0005')
             
-    def request_real_data(self, codelist, fidlist, opttype='1', scrno='0100'):
+    def request_real_data(self, codelist, fidlist, opttype='1', scrno='0100'):            
         self.set_real_data(scrno, codelist, fidlist, opttype)
     
  
@@ -327,11 +389,11 @@ kiwoom = Kiwoom()
 # kiwoom.static_data_to_sql('900310_Tick', '900310_Tick.db', df)
 # kiwoom.reset()
 
-kiwoom.request_tick_chart('005930')
-df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['일자'])
-print(df)
-kiwoom.static_data_to_sql('005930_Tick', '005930_Tick.db', df)
-kiwoom.reset()
+# kiwoom.request_tick_chart('005930')
+# df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['일자'])
+# print(df)
+# kiwoom.static_data_to_sql('005930_Tick', '005930_Tick.db', df)
+# kiwoom.reset()
 
 # kiwoom.request_tick_chart('005380')
 # df = pd.DataFrame(kiwoom.ohlcva, index=kiwoom.ohlcva['일자'])
@@ -339,7 +401,11 @@ kiwoom.reset()
 # kiwoom.static_data_to_sql('005380_Tick', '005380_Tick.db', df)
 # kiwoom.reset()
 
-# kiwoom.request_mass_data('03940,023590,035420', 3)
+# kiwoom.request_mass_data('03940;023590;035420', 3)
+
 
 # kiwoom.request_real_data(['900310', '005380', '005930'], kiwoom.fidlist)
-kiwoom.request_real_data(['005930'], kiwoom.fidlist)
+# kiwoom.request_real_data(['005930'], kiwoom.fidlist)
+
+# kiwoom.request_mass_data('900310;005380;005930', 3) # Use ; to separate each other
+kiwoom.request_mass_data(['삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션'])
