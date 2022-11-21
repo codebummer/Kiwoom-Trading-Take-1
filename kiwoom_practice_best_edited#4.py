@@ -9,8 +9,8 @@ from datetime import datetime
 # import matplotlib.pyplot as plt
 
 #change the current working directory
-path = r'D:\myprojects\TradingDB' + f'\{datetime.today().strftime('%Y-%m-%d')}'
-if not os.path.exists():
+path = r'D:\myprojects\TradingDB' + '\\' + datetime.today().strftime('%Y-%m-%d')
+if not os.path.exists(path):
      os.mkdir(path)
 os.chdir(path) 
 
