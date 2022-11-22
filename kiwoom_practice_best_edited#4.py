@@ -24,6 +24,7 @@ class Kiwoom(QAxWidget):
         self.fidlist = []
         self.tr_data = {}
         self.stockcode_non_realtime = 0
+        self.requesting_time_unit = ''
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10
         self.reset()
         self.OCX_available()      
@@ -141,7 +142,7 @@ class Kiwoom(QAxWidget):
         elif prenext == 0:
             self.remaining_data = False
             
-        print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
+        print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: ->in _receive_tr_data\n',\
                 scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)        
 
         if rqname == 'OPT10081':
@@ -168,7 +169,7 @@ class Kiwoom(QAxWidget):
             self._realtype_order_made(code)
     
     def _receive_msg(self, scrno, rqname, trcode, msg):
-        print('\n\nscrno, rqname, trcode, msg in receive_msg: ', scrno, rqname, trcode, msg)
+        print('\n\nscrno, rqname, trcode, msg in receive_msg: ->in _receive_tr_data\n', scrno, rqname, trcode, msg)
         
  
         # try:
@@ -193,7 +194,8 @@ class Kiwoom(QAxWidget):
 
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
-            
+        
+        self.requesting_time_unit = ''
         df_name, df = self._df_generator('주식시세', code, add)
         self.lapse = time.time()
         if len(df) > 10 or self.lapse - self.starting_time > self.SAVING_INTERVAL:
@@ -208,6 +210,7 @@ class Kiwoom(QAxWidget):
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
+        self.requesting_time_unit = ''
         df_name, df = self._df_generator('주식체결', code, add)
         self.lapse = time.time()
         if len(df) > 10 or self.lapse - self.starting_time > self.SAVING_INTERVAL:
@@ -221,7 +224,9 @@ class Kiwoom(QAxWidget):
 
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
-        
+
+        self.requesting_time_unit = ''
+        df_name, df = self._df_generator('주문체결', code, add)        
         self.lapse = time.time()
         if len(df) > 10 or self.lapse - self.starting_time > self.SAVING_INTERVAL:
             self.starting_time = time.time()
@@ -229,8 +234,8 @@ class Kiwoom(QAxWidget):
             self.tr_data[df_name] = pd.DataFrame()
 
     def _df_generator(self, realtype, stockcode, data):
-        print('\n\nrealtype, stockcode, data in df_generator: ', realtype, stockcode, data)
-        df_name = self.all_stocks[stockcode]+'_'+realtype+'_'+datetime.today().strftime('%Y_%m_%d')
+        print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks[stockcode][0], data)
+        df_name = self.all_stocks[stockcode][0]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
         if df_name in self.tr_data.keys():
             self.tr_data[df_name] = self.tr_data[df_name].append(pd.DataFrame(data), ignore_index=True)
             return df_name, self.tr_data[df_name]
@@ -272,9 +277,10 @@ class Kiwoom(QAxWidget):
             add['수정주가이벤트'] = [self._get_comm_data(trcode, rqname, idx, '수정주가이벤트')]
             add['전일종가'] = [self._get_comm_data(trcode, rqname, idx, '전일종가')]
         
+        
         df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식분봉차트', df_name+'.db', df)   
-        print('\n\nmass request received:\n', self.tr_data[df_name])          
+        print('\n\n_opt10080 request received:\n', self.tr_data[df_name])          
         self.tr_data[df_name] = pd.DataFrame()
  
     def _opt10081(self, rqname, trcode):
@@ -294,10 +300,10 @@ class Kiwoom(QAxWidget):
             if idx == 0:
                 continue                       
             add[key] = int(add[key][0])                       
-    
+   
         df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식분봉차트', df_name+'.db', df)     
-        print('\n\nmass request received:\n', self.tr_data[df_name])                
+        print('\n\n_opt10081 request received:\n', self.tr_data[df_name])                
         self.tr_data[df_name] = pd.DataFrame()
 
     def _opt10079(self, rqname, trcode):
@@ -320,7 +326,7 @@ class Kiwoom(QAxWidget):
     
         df_name, df = self._df_generator('주식틱차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식틱차트', df_name+'.db', df)       
-        print('\n\nmass request received:\n', self.tr_data[df_name])                                 
+        print('\n\n_opt10079 request received:\n', self.tr_data[df_name])                                 
         self.tr_data[df_name] = pd.DataFrame()
     
     def _optkwfid(self, trcode):
@@ -382,12 +388,13 @@ class Kiwoom(QAxWidget):
             if idx in [6, 10, 11]:
                 add[key] = float(add[key][0])
             add[key] = int(add[key][0])
-    
+
+        print('\n\n_optkwfid request received: \n', add)
   
-        df_name, df = self._df_generator('관심종목', self.stockcode_non_realtime, add)
-        self._data_to_sql('관심종목', df_name+'.db', df)
-        print('\n\nmass request received:\n', self.tr_data[df_name])                    
-        self.tr_data[df_name] = pd.DataFrame()
+        # df_name, df = self._df_generator('관심종목', self.stockcode_non_realtime, add)
+        # self._data_to_sql('관심종목', df_name+'.db', df)
+        # print('\n\n_optkwfid request received:\n', self.tr_data[df_name])                    
+        # self.tr_data[df_name] = pd.DataFrame()
  
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
@@ -407,14 +414,15 @@ class Kiwoom(QAxWidget):
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10081', 'opt10081', 2, '0002')
 
-    def request_minute_chart(self, stock, mintime, pricetype):
+    def request_minute_chart(self, stock, mintime=30, pricetype=1):
         '''
         stock: name of a stock
         ticktime: one of 1, 3, 5, 10, 15, 30, 45, 60 
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks[stock]
-        self.stockcode_non_realtime = stockcode        
+        self.stockcode_non_realtime = stockcode      
+        self.requesting_time_unit = str(mintime)+'분'
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('틱범위', mintime)
         self.set_input_value('수정주가구분', pricetype)
@@ -434,7 +442,8 @@ class Kiwoom(QAxWidget):
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks[stock]
-        self.stockcode_non_realtime = stockcode        
+        self.stockcode_non_realtime = stockcode      
+        self.requesting_time_unit = str(ticktime)+'틱'
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('틱범위', ticktime)
         self.set_input_value('수정주가구분', pricetype)
