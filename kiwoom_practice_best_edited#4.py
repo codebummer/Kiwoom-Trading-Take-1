@@ -364,7 +364,7 @@ class Kiwoom(QAxWidget):
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10079', 'opt10079', 2, '0004')
     
-    def request_mass_data(self, stocklist, prenext=0):
+    def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
         codecnt = len(stocklist)
         for idx, stock in enumerate(stocklist):
@@ -383,6 +383,5 @@ app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
 
-kiwoom.request_mass_data(['삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션'])
-
+kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 print(kiwoom.all_stocks)
