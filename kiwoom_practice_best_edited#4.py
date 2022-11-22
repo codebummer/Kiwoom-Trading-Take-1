@@ -9,7 +9,9 @@ from datetime import datetime
 # import matplotlib.pyplot as plt
 
 #change the current working directory
-path = r'D:\myprojects\TradingDB' + '\\' + datetime.today().strftime('%Y-%m-%d')
+# path = r'D:\myprojects\TradingDB' + '\\' + datetime.today().strftime('%Y-%m-%d')
+path = r'D:\myprojects\TradingDB'
+
 if not os.path.exists(path):
      os.mkdir(path)
 os.chdir(path) 
@@ -212,7 +214,7 @@ class Kiwoom(QAxWidget):
 
     def _df_generator(self, realtype, stockcode, data):
         print('\n\nrealtype, stockcode, data in df_generator: ', realtype, stockcode, data)
-        df_name = stockcode+'_'+realtype
+        df_name = self.all_stocks[stockcode]+'_'+realtype+'_'+datetime.today().strftime('%Y_%m_%d')
         if df_name in self.real_tr_data.keys():
             self.real_tr_data[df_name] = self.real_tr_data[df_name].append(pd.DataFrame(data), ignore_index=True)
             return df_name, self.real_tr_data[df_name]
