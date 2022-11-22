@@ -76,7 +76,7 @@ class Kiwoom(QAxWidget):
         self.OnReceiveTrData.connect(self._receive_tr_data)
         self.OnReceiveRealData.connect(self._receive_real_data)
         self.OnReceiveMsg.connect(self._receive_msg)
-        self.OnReceiveChejanData(self._receive_chejan_data)
+        self.OnReceiveChejanData.connect(self._receive_chejan_data)
     
     def _comm_connect_event(self, err_code):
         if err_code == 0:
@@ -466,7 +466,7 @@ app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
 
-kiwoom.request_tick_chart('삼성전자', 30)
-kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
+kiwoom.request_minute_chart('삼성전자', 30)
+# kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 
-print(kiwoom.all_stocks)
+# print(kiwoom.all_stocks)
