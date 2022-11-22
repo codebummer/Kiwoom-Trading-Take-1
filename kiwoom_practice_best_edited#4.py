@@ -23,7 +23,8 @@ class Kiwoom(QAxWidget):
         super().__init__()
         
         self.fidlist = []
-        self.real_tr_data ={}
+        self.real_tr_data = {}
+        self.tr_data = {}
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10
         self.reset()
         self.OCX_available()      
@@ -130,18 +131,17 @@ class Kiwoom(QAxWidget):
             self.remaining_data = True
         elif prenext == 0:
             self.remaining_data = False
+
+        print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
+                scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)
         
         if rqname == 'OPT10081':
-            print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
-                 scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)
             self._opt10081(rqname, trcode)
-        elif rqname == 'OPT10079':
-            print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
-                 scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)
+        elif rqname == 'OPT10079': 
             self._opt10079(rqname, trcode)
-        elif rqname == 'OPTKWFID':
-            print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: \n',\
-                 scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)            
+        elif rqname == 'OPT10080':
+            self._opt10080(rqname, trcode)
+        elif rqname == 'OPTKWFID':                  
             self._optkwfid(trcode)
 
         try:
@@ -178,7 +178,7 @@ class Kiwoom(QAxWidget):
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
             
-        df_name, df = self._df_generator('주식시세', code, add)
+        df_name, df = self._df_generator_real_time('주식시세', code, add)
         self.lapse = time.time()
         if len(df) > 10 or self.lapse - self.starting_time > self.SAVING_INTERVAL:
             self.starting_time = time.time()
@@ -192,7 +192,7 @@ class Kiwoom(QAxWidget):
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
-        df_name, df = self._df_generator('주식체결', code, add)
+        df_name, df = self._df_generator_real_time('주식체결', code, add)
         self.lapse = time.time()
         if len(df) > 10 or self.lapse - self.starting_time > self.SAVING_INTERVAL:
             self.starting_time = time.time()
@@ -212,7 +212,7 @@ class Kiwoom(QAxWidget):
             self._real_data_to_sql('주문체결', df_name+'.db', df)
             self.real_tr_data[df_name] = pd.DataFrame()
 
-    def _df_generator(self, realtype, stockcode, data):
+    def _df_generator_real_time(self, realtype, stockcode, data):
         print('\n\nrealtype, stockcode, data in df_generator: ', realtype, stockcode, data)
         df_name = self.all_stocks[stockcode]+'_'+realtype+'_'+datetime.today().strftime('%Y_%m_%d')
         if df_name in self.real_tr_data.keys():
@@ -222,6 +222,12 @@ class Kiwoom(QAxWidget):
             self.real_tr_data[df_name] = pd.DataFrame(data)
             return df_name, self.real_tr_data[df_name]
     
+    def _df_generator_non_real_time(self, realtype, stockcode, data):
+        print('\n\nrealtype, stockcode, data in df_generator: ', realtype, stockcode, data)
+        df_name = self.all_stocks[stockcode]+'_'+realtype
+        if df_name in self.
+
+
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
 
@@ -233,6 +239,29 @@ class Kiwoom(QAxWidget):
         for idx in itemcnt:
             for fid in fidlist:
                 print(self.dynamicCall('GetChejanData(int)', fid))
+
+    def _opt10080(self, rqname, trcode):
+        data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
+
+        add = {}
+        for idx in range(data_cnt):
+            add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
+            add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
+            add['체결시간'] = [self._get_comm_data(trcode, rqname, idx, '체결시간')]
+            add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
+            add['고가'] = [self._get_comm_data(trcode, rqname, idx, '고가')]
+            add['저가'] = [self._get_comm_data(trcode, rqname, idx, '저가')]
+            add['수정주가구분'] = [self._get_comm_data(trcode, rqname, idx, '수정주가구분')]
+            add['수정비율'] = [self._get_comm_data(trcode, rqname, idx, '수정비율')]
+            add['대업종구분'] = [self._get_comm_data(trcode, rqname, idx, '대업종구분')]
+            add['소업종구분'] = [self._get_comm_data(trcode, rqname, idx, '소업종구분')]
+            add['종목정보'] = [self._get_comm_data(trcode, rqname, idx, '종목정보')]
+            add['수정주가이벤트'] = [self._get_comm_data(trcode, rqname, idx, '수정주가이벤트')]
+            add['전일종가'] = [self._get_comm_data(trcode, rqname, idx, '전일종가')]
+        
+        self._df_generator_non_real_time('주식분봉차트', stockcode, data)
+        
+
  
     def _opt10081(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
@@ -338,7 +367,8 @@ class Kiwoom(QAxWidget):
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
-    def request_daily_chart(self, stockcode, date, pricetype=1):
+    def request_daily_chart(self, stock, date, pricetype=1):
+        stockcode = self.all_stocks[stock]
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('기준일자', date)
         self.set_input_value('수정주가구분', pricetype)
@@ -351,18 +381,43 @@ class Kiwoom(QAxWidget):
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10081', 'opt10081', 2, '0002')
     
-    def request_tick_chart(self, stockcode, ticktime=1, pricetype=1):
+    def request_minute_chart(self, stock, mintime, pricetype):
+        '''
+        stock: name of a stock
+        ticktime: one of 1, 3, 5, 10, 15, 30, 45, 60 
+        pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
+        '''
+        stockcode = self.all_stocks[stock]
+        self.set_input_value('종목코드', stockcode)
+        self.set_input_value('틱범위', mintime)
+        self.set_input_value('수정주가구분', pricetype)
+        self.comm_rq_data('OPT10080', 'opt10080', 0, '0003')
+
+        while self.remaining_data == True:
+            time.sleep(TR_REQ_TIME_INTERVAL)
+            self.set_input_value('종목코드', stockcode)
+            self.set_input_value('틱범위', mintime)
+            self.set_input_value('수정주가구분', pricetype)
+            self.comm_rq_data('OPT10080', 'opt10080', 2, '0004')
+    
+    def request_tick_chart(self, stock, ticktime=1, pricetype=1):
+        '''
+        stock: name of a stock
+        ticktime: one of 1, 3, 5, 10, 30
+        pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
+        '''
+        stockcode = self.all_stocks[stock]
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('틱범위', ticktime)
         self.set_input_value('수정주가구분', pricetype)
-        self.comm_rq_data('OPT10079', 'opt10079', 0, '0003')
+        self.comm_rq_data('OPT10079', 'opt10079', 0, '0005')
 
         while self.remaining_data == True:
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', ticktime)
             self.set_input_value('수정주가구분', pricetype)
-            self.comm_rq_data('OPT10079', 'opt10079', 2, '0004')
+            self.comm_rq_data('OPT10079', 'opt10079', 2, '0006')
     
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
@@ -373,7 +428,7 @@ class Kiwoom(QAxWidget):
             else:
                 code_list += ';'+self.all_stocks[stock] #CommKwRqData() receives multiple stock tickers as one string separated with ;
         print(code_list)
-        self.comm_kw_rq_data(code_list, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0005')
+        self.comm_kw_rq_data(code_list, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0200')
             
     def request_real_data(self, codelist, fidlist, opttype='1', scrno='0100'):            
         self.set_real_data(scrno, codelist, fidlist, opttype)
@@ -383,5 +438,6 @@ app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
 
+kiwoom.request_tick_chart('삼성전자', 30)
 kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
-print(kiwoom.all_stocks)
+# print(kiwoom.all_stocks)
