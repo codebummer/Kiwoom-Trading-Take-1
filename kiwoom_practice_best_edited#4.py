@@ -20,19 +20,13 @@ TR_REQ_TIME_INTERVAL = 0.2
 class Kiwoom(QAxWidget):
     def __init__(self):
         super().__init__()
-        
-        self.fidlist = []
-        self.tr_data = {}
-        self.stockcode_non_realtime = 0
-        self.requesting_time_unit = ''
-        self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10
+       
         self.reset()
         self.OCX_available()      
         self._event_handlers()
-        self._login()
-        
-        self.account_info()
-        self.all_stocks = self.stock_ticker()        
+        self._login()        
+        self.account_info()    
+        self.all_stocks = self.stock_ticker()  
 
     def OCX_available(self):
         self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
@@ -40,6 +34,11 @@ class Kiwoom(QAxWidget):
     def reset(self):
         self.account_num = 0
         self.remaining_data = False
+        self.fidlist = []
+        self.tr_data = {}
+        self.stockcode_non_realtime = 0
+        self.requesting_time_unit = ''
+        self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
         self.fids_dict = {
             '주식시세' : {10:'현재가', 11:'전일대비', 12:'등락율', 27:'매도호가', 28:'매수호가',
                         13:'누적거래량', 14:'누적거래대금', 16:'시가', 17:'고가', 18:'저가', 25:'전일대비기호',
@@ -423,6 +422,11 @@ class Kiwoom(QAxWidget):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
     def request_daily_chart(self, stock, date, pricetype=1):
+        '''
+        stock: 주식종목명
+        date: 일자 YYYYMMDD
+        pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
+        '''
         stockcode = self.all_stocks[stock]
         self.stockcode_non_realtime = stockcode        
         self.set_input_value('종목코드', stockcode)
@@ -518,7 +522,8 @@ type(kiwoom.account_num)
 
 
 # kiwoom.make_order('삼성전자', 61000, 1, '03')
-kiwoom.request_minute_chart('삼성전자', 30)
+# kiwoom.request_minute_chart('삼성전자', 30)
+kiwoom.request_daily_chart('삼성전자', '20221123')
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 
 # print(kiwoom.all_stocks)
