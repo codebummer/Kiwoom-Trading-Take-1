@@ -323,8 +323,8 @@ class Kiwoom(QAxWidget):
         #         continue                       
         #     add[key] = int(add[key][0])                       
                
-        df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
-        self._data_to_sql('주식분봉차트', df_name+'.db', df)     
+        df_name, df = self._df_generator('주식일봉차트', self.stockcode_non_realtime, add)
+        self._data_to_sql('주식일봉차트', df_name+'.db', df)     
         print('\n\n_opt10081 request received:\n', self.tr_data[df_name])                
         self.tr_data[df_name] = pd.DataFrame()
 
@@ -428,7 +428,8 @@ class Kiwoom(QAxWidget):
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks[stock]
-        self.stockcode_non_realtime = stockcode        
+        self.stockcode_non_realtime = stockcode  
+        self.requesting_time_unit = ''      
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('기준일자', date)
         self.set_input_value('수정주가구분', pricetype)
