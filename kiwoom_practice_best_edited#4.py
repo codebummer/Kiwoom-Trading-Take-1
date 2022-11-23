@@ -298,7 +298,7 @@ class Kiwoom(QAxWidget):
 
         add = {}
         for idx in range(data_cnt):
-            for key in self.tr_data['opt10080']:
+            for key in self.fids_dict['opt10080']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
 
             # add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
@@ -326,7 +326,7 @@ class Kiwoom(QAxWidget):
 
         add = {}
         for idx in range(data_cnt):
-            for key in self.tr_data['opt10081']:
+            for key in self.fids_dict['opt10081']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
 
             # add['일자'] = [self._get_comm_data(trcode, rqname, idx, '일자')]
@@ -352,7 +352,7 @@ class Kiwoom(QAxWidget):
            
         add = {}
         for idx in range(data_cnt):
-            for key in self.tr_data['opt10079']:
+            for key in self.fids_dict['opt10079']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
 
             # add['체결시간'] = [self._get_comm_data(trcode, rqname, idx, '체결시간')]
@@ -378,7 +378,7 @@ class Kiwoom(QAxWidget):
         
         add= {}
         for idx in range(data_cnt):
-            for key in self.tr_data['OPTKWFID']:
+            for key in self.fids_dict['OPTKWFID']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
 
             # add['종목코드'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종목코드')] #0
