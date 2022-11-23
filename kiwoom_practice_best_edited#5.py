@@ -205,7 +205,7 @@ class Kiwoom(QAxWidget):
         #     pass
         
     def _receive_chejan_data(self, gubun, itemcnt, fidlist):
-        print('gubun: -> in _receive_chejan_data\n', gubun)
+        print('gubun, type(gubun): -> in _receive_chejan_data\n', gubun, type(gubun))
         if gubun == 0: #order placed and made 
             self._real_chejan_placed_made(itemcnt, fidlist)
         elif gubun == 1:
