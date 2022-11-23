@@ -60,7 +60,20 @@ class Kiwoom(QAxWidget):
                         916:'대출일', 930:'보유수량', 931:'매입단가', 932:'총매입가', 933:'주문가능수량', 945:'당일순매수수량', 
                         946:'매도/매수구분', 950:'당일총매도손일', 951:'예수금', 307:'기준가', 8019:'손익율', 957:'신용금액', 958:'신용이자',
                         918:'만기일', 990:'당일실현손익(유가)', 991:'당일실현손익률(유가)', 993:'당일실현손익률(신용)', 397:'파생상품거래단위',
-                        305:'상한가', 306:'하한가'}
+                        305:'상한가', 306:'하한가'},
+            'opt10079' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분',
+                            '종목정보', '수정주가이벤트', '전일종가'],
+            'opt10080' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분', 
+                            '종목정보', '수정주가이벤트', '전일종가'],
+            'opt10081' : ['종목코드', '현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분',
+                            '소업종구분', '종목정보', '수정주가이벤트', '전일종가'],
+            'OPTKWFID' : ['종목코드', '종목명', '현재가', '기준가', '전일대비', '전일대비기호', '등락율', '거래량', '거래대금', '체결량', 
+                            '체결강도', '전일거래량대비', '매도호가', '매수호가', '매도1차호가', '매도2차호가', '매도3차호가', '매도4차호가',
+                            '매도5차호가', '매수1차호가', '매수2차호가', '매수3차호가', '매수4차호가', '매수5차호가', '상한가', '하한가', '시가',
+                            '고가', '저가', '종가', '체결시간', '예상체결가', '예상체결량', '자본금', '액면가', '시가총액', '주식수', '호가시간',
+                            '일자', '우선매도잔량', '우선매수잔량', '우선매도건수', '우선매수건수', '총매도잔량', '총매수잔량', '총매도건수', 
+                            '총매수건수', '패리티', '기어링', '손익분기', '자본지지', 'ELW행사가', '전환비율', 'ELW만기일', '미결제약정', '미결제전일대비',
+                            '이론가', '내재변동성', '델타', '감마', '쎄타', '베가', '로']
         }
         self.orders_dict = {
             '호가구분' : {'00':'지정가', '03':'시장가', '05':'조건부지정가', '06':'최유리지정가', '07':'최우선지정가', '10':'지정가IOC', '13':'시장가IOC', 
@@ -285,19 +298,22 @@ class Kiwoom(QAxWidget):
 
         add = {}
         for idx in range(data_cnt):
-            add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
-            add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
-            add['체결시간'] = [self._get_comm_data(trcode, rqname, idx, '체결시간')]
-            add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
-            add['고가'] = [self._get_comm_data(trcode, rqname, idx, '고가')]
-            add['저가'] = [self._get_comm_data(trcode, rqname, idx, '저가')]
-            add['수정주가구분'] = [self._get_comm_data(trcode, rqname, idx, '수정주가구분')]
-            add['수정비율'] = [self._get_comm_data(trcode, rqname, idx, '수정비율')]
-            add['대업종구분'] = [self._get_comm_data(trcode, rqname, idx, '대업종구분')]
-            add['소업종구분'] = [self._get_comm_data(trcode, rqname, idx, '소업종구분')]
-            add['종목정보'] = [self._get_comm_data(trcode, rqname, idx, '종목정보')]
-            add['수정주가이벤트'] = [self._get_comm_data(trcode, rqname, idx, '수정주가이벤트')]
-            add['전일종가'] = [self._get_comm_data(trcode, rqname, idx, '전일종가')]
+            for key in self.tr_data['opt10080']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
+
+            # add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
+            # add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
+            # add['체결시간'] = [self._get_comm_data(trcode, rqname, idx, '체결시간')]
+            # add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
+            # add['고가'] = [self._get_comm_data(trcode, rqname, idx, '고가')]
+            # add['저가'] = [self._get_comm_data(trcode, rqname, idx, '저가')]
+            # add['수정주가구분'] = [self._get_comm_data(trcode, rqname, idx, '수정주가구분')]
+            # add['수정비율'] = [self._get_comm_data(trcode, rqname, idx, '수정비율')]
+            # add['대업종구분'] = [self._get_comm_data(trcode, rqname, idx, '대업종구분')]
+            # add['소업종구분'] = [self._get_comm_data(trcode, rqname, idx, '소업종구분')]
+            # add['종목정보'] = [self._get_comm_data(trcode, rqname, idx, '종목정보')]
+            # add['수정주가이벤트'] = [self._get_comm_data(trcode, rqname, idx, '수정주가이벤트')]
+            # add['전일종가'] = [self._get_comm_data(trcode, rqname, idx, '전일종가')]
         
         
         df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
@@ -310,13 +326,16 @@ class Kiwoom(QAxWidget):
 
         add = {}
         for idx in range(data_cnt):
-            add['일자'] = [self._get_comm_data(trcode, rqname, idx, '일자')]
-            add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
-            add['고가'] = [self._get_comm_data(trcode, rqname, idx, '고가')]
-            add['저가'] = [self._get_comm_data(trcode, rqname, idx, '저가')]
-            add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
-            add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
-            add['거래대금'] = [self._get_comm_data(trcode, rqname, idx, '거래대금')]
+            for key in self.tr_data['opt10081']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
+
+            # add['일자'] = [self._get_comm_data(trcode, rqname, idx, '일자')]
+            # add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
+            # add['고가'] = [self._get_comm_data(trcode, rqname, idx, '고가')]
+            # add['저가'] = [self._get_comm_data(trcode, rqname, idx, '저가')]
+            # add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
+            # add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
+            # add['거래대금'] = [self._get_comm_data(trcode, rqname, idx, '거래대금')]
 
         # for idx, key in enumerate(add.keys()):
         #     if idx == 0:
@@ -333,13 +352,16 @@ class Kiwoom(QAxWidget):
            
         add = {}
         for idx in range(data_cnt):
-            add['체결시간'] = [self._get_comm_data(trcode, rqname, idx, '체결시간')]
-            add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
-            add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
-            add['고가'] = [self._get_comm_data(trcode, rqname, idx, '고가')]
-            add['저가'] = [self._get_comm_data(trcode, rqname, idx, '저가')]
-            add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
-            add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
+            for key in self.tr_data['opt10079']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
+
+            # add['체결시간'] = [self._get_comm_data(trcode, rqname, idx, '체결시간')]
+            # add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
+            # add['시가'] = [self._get_comm_data(trcode, rqname, idx, '시가')]
+            # add['고가'] = [self._get_comm_data(trcode, rqname, idx, '고가')]
+            # add['저가'] = [self._get_comm_data(trcode, rqname, idx, '저가')]
+            # add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
+            # add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
             
         # for idx, key in enumerate(add.keys()):
         #     if idx == 0:
@@ -356,53 +378,56 @@ class Kiwoom(QAxWidget):
         
         add= {}
         for idx in range(data_cnt):
-            add['종목코드'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종목코드')] #0
-            add['종목명'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종목명')] #1
-            add['현재가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '현재가')]
-            add['기준가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '기준가')]
-            add['전일대비'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일대비')]
-            add['전일대비기호'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일대비기호')]
-            add['등락율'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '등락율')] #6
-            add['거래량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '거래량')]
-            add['거래대금'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '거래대금')]
-            add['체결량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결량')]
-            add['체결강도'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결강도')] #10
-            add['전일거래량대비'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일거래량대비')] #11
-            add['매도호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도호가')]
-            add['매수호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수호가')]
-            add['매도1차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도1차호가')]
-            add['매도2차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도2차호가')]
-            add['매도3차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도3차호가')]
-            add['매도4차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도4차호가')]
-            add['매도5차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도5차호가')]
-            add['매수1차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수1차호가')]
-            add['매수2차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수2차호가')]
-            add['매수3차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수3차호가')]
-            add['매수4차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수4차호가')]
-            add['매수5차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수5차호가')]
-            add['상한가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '상한가')]
-            add['하한가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '하한가')]
-            add['시가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '시가')]
-            add['고가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '고가')]
-            add['저가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '저가')]
-            add['종가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종가')]
-            add['체결시간'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결시간')]
-            add['예상체결가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '예상체결가')]
-            add['예상체결량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '예상체결량')]
-            add['자본금'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '자본금')]
-            add['액면가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '액면가')]
-            add['시가총액'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '시가총액')]
-            add['주식수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '주식수')]
-            add['호가시간'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '호가시간')]
-            add['일자'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '일자')]
-            add['우선매도잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매도잔량')]
-            add['우선매수잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매수잔량')]
-            add['우선매도건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매도건수')]
-            add['우선매수건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매수건수')]
-            add['총매도잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매도잔량')]
-            add['총매수잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매수잔량')]
-            add['총매도건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매도건수')]
-            add['총매수건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매수건수')]
+            for key in self.tr_data['OPTKWFID']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
+
+            # add['종목코드'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종목코드')] #0
+            # add['종목명'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종목명')] #1
+            # add['현재가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '현재가')]
+            # add['기준가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '기준가')]
+            # add['전일대비'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일대비')]
+            # add['전일대비기호'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일대비기호')]
+            # add['등락율'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '등락율')] #6
+            # add['거래량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '거래량')]
+            # add['거래대금'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '거래대금')]
+            # add['체결량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결량')]
+            # add['체결강도'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결강도')] #10
+            # add['전일거래량대비'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '전일거래량대비')] #11
+            # add['매도호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도호가')]
+            # add['매수호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수호가')]
+            # add['매도1차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도1차호가')]
+            # add['매도2차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도2차호가')]
+            # add['매도3차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도3차호가')]
+            # add['매도4차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도4차호가')]
+            # add['매도5차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매도5차호가')]
+            # add['매수1차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수1차호가')]
+            # add['매수2차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수2차호가')]
+            # add['매수3차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수3차호가')]
+            # add['매수4차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수4차호가')]
+            # add['매수5차호가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '매수5차호가')]
+            # add['상한가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '상한가')]
+            # add['하한가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '하한가')]
+            # add['시가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '시가')]
+            # add['고가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '고가')]
+            # add['저가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '저가')]
+            # add['종가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '종가')]
+            # add['체결시간'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '체결시간')]
+            # add['예상체결가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '예상체결가')]
+            # add['예상체결량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '예상체결량')]
+            # add['자본금'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '자본금')]
+            # add['액면가'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '액면가')]
+            # add['시가총액'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '시가총액')]
+            # add['주식수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '주식수')]
+            # add['호가시간'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '호가시간')]
+            # add['일자'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '일자')]
+            # add['우선매도잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매도잔량')]
+            # add['우선매수잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매수잔량')]
+            # add['우선매도건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매도건수')]
+            # add['우선매수건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '우선매수건수')]
+            # add['총매도잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매도잔량')]
+            # add['총매수잔량'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매수잔량')]
+            # add['총매도건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매도건수')]
+            # add['총매수건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매수건수')]
         
         # for idx, key in enumerate(add.keys()):
         #     if idx in [0, 1]:
