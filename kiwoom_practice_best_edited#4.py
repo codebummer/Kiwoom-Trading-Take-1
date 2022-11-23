@@ -38,6 +38,7 @@ class Kiwoom(QAxWidget):
         self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
 
     def reset(self):
+        self.account_num = 0
         self.remaining_data = False
         self.fids_dict = {
             '주식시세' : {10:'현재가', 11:'전일대비', 12:'등락율', 27:'매도호가', 28:'매수호가',
@@ -95,10 +96,12 @@ class Kiwoom(QAxWidget):
             df.to_sql(tablename, file, if_exists='append')
             
     def account_info(self):
-        account_num = self.dynamicCall('GetLoginInfo(QString)', ['ACCNO'])
-        print(account_num.strip(';'))
+        #GetLoginInfo() takes its argument as a list form. Put all the input values in []
+        self.account_num = self.dynamicCall('GetLoginInfo(QString)', ['ACCNO']).strip(';')
+        print(self.account_num)
 
     def stock_ticker(self):
+        #GetCodeListByMarket() takes its argument as a list form. Put all the input values in []
         response = self.dynamicCall('GetCodeListByMarket(QString)', ['']) # '' means all markets. '0' means KOSPI. '10' means KOSDAQ.
         tickers = response.split(';')
         stock_list = {}
@@ -119,7 +122,10 @@ class Kiwoom(QAxWidget):
         self._event_loop_exec('real')
         
     def set_order(self, rqname, scrno, accno, ordertype, code, qty, price, hogagb, orgorderno):
-        self.dynamicCall('SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)', rqname, scrno, accno, ordertype, code, qty, price, hogagb, orgorderno)
+        #SendOrder() takes its argument as a list form. Put all the input values in []
+        self.dynamicCall('SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)', [rqname, scrno, accno, ordertype, code, qty, price, hogagb, orgorderno])
+        
+        self._event_loop_exec('order')
     
     def comm_rq_data(self, rqname, trcode, prenext, scrno):
         self.dynamicCall('CommRQData(QString, QString, int, QString)', rqname, trcode, prenext, scrno)
@@ -154,11 +160,11 @@ class Kiwoom(QAxWidget):
         elif rqname == 'OPTKWFID':
             self._optkwfid(trcode)
 
-        try:
-            self._event_loop_exit('tr')
+        # try:
+        #     self._event_loop_exit('tr')
 
-        except AttributeError:
-            pass
+        # except AttributeError:
+        #     pass
     
     def _receive_real_data(self, code, realtype, realdata):
         if realtype == '주식시세':
@@ -296,11 +302,11 @@ class Kiwoom(QAxWidget):
             add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
             add['거래대금'] = [self._get_comm_data(trcode, rqname, idx, '거래대금')]
 
-        for idx, key in enumerate(add.keys()):
-            if idx == 0:
-                continue                       
-            add[key] = int(add[key][0])                       
-   
+        # for idx, key in enumerate(add.keys()):
+        #     if idx == 0:
+        #         continue                       
+        #     add[key] = int(add[key][0])                       
+               
         df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식분봉차트', df_name+'.db', df)     
         print('\n\n_opt10081 request received:\n', self.tr_data[df_name])                
@@ -319,11 +325,11 @@ class Kiwoom(QAxWidget):
             add['현재가'] = [self._get_comm_data(trcode, rqname, idx, '현재가')]
             add['거래량'] = [self._get_comm_data(trcode, rqname, idx, '거래량')]
             
-        for idx, key in enumerate(add.keys()):
-            if idx == 0:
-                continue                       
-            add[key] = int(add[key][0])                       
-    
+        # for idx, key in enumerate(add.keys()):
+        #     if idx == 0:
+        #         continue 
+        #     add[key] = int(add[key][0])                      
+
         df_name, df = self._df_generator('주식틱차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식틱차트', df_name+'.db', df)       
         print('\n\n_opt10079 request received:\n', self.tr_data[df_name])                                 
@@ -382,12 +388,12 @@ class Kiwoom(QAxWidget):
             add['총매도건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매도건수')]
             add['총매수건수'] = [self._get_comm_data(trcode, 'OPTKWFID', idx, '총매수건수')]
         
-        for idx, key in enumerate(add.keys()):
-            if idx in [0, 1]:
-                continue
-            if idx in [6, 10, 11]:
-                add[key] = float(add[key][0])
-            add[key] = int(add[key][0])
+        # for idx, key in enumerate(add.keys()):
+        #     if idx in [0, 1]:
+        #         continue
+        #     if idx in [6, 10, 11]:
+        #         add[key] = float(add[key][0])
+        #     add[key] = int(add[key][0])
 
         print('\n\n_optkwfid request received: \n', add)
   
@@ -417,7 +423,7 @@ class Kiwoom(QAxWidget):
     def request_minute_chart(self, stock, mintime=30, pricetype=1):
         '''
         stock: name of a stock
-        ticktime: one of 1, 3, 5, 10, 15, 30, 45, 60 
+        mintime: one of 1, 3, 5, 10, 15, 30, 45, 60 
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks[stock]
@@ -456,7 +462,7 @@ class Kiwoom(QAxWidget):
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10079', 'opt10079', 2, '0004')
     
-    def request_mass_data(self, stocklist, prenext=0):
+    def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
         codecnt = len(stocklist)
         for idx, stock in enumerate(stocklist):
@@ -470,12 +476,33 @@ class Kiwoom(QAxWidget):
     def request_real_data(self, codelist, fidlist, opttype='1', scrno='0100'):            
         self.set_real_data(scrno, codelist, fidlist, opttype)
     
+    def make_order(self, stock, price, qty, hogagb='00', ordertype=1, orderno=' '):
+        '''
+        stock: 주식이름
+        price: 주문가격
+        qty: 주문수량
+        hogagb: 거래구분(혹은 호가구분)        
+            '00':'지정가', '03':'시장가', '05':'조건부지정가', '06':'최유리지정가', '07':'최우선지정가', '10':'지정가IOC', '13':'시장가IOC',
+            '16':'최유리IOC', '20':'지정가FOK', '23':'시장가FOK', '26':'최유리FOK', '61':'장전시간외종가', '62':'시간외단일가매매', '81':'장후시간외종가'
+        ordertype: 주문유형 1:신규매수(default), 2:신규매도 3:매수취소, 4:매도취소, 5:매수정정, 6:매도정정      
+        orderno: 원주문번호. 신규주문에는 공백 입력, 정정/취소시 입력합니다.        
+        '''
+        stockcode = self.all_stocks[stock]
+        
+        print('\n\ntypes of self.account_num, ordertype, stockcode, qty, price, hogagb, orderno: \n')
+        print([type(i) for i in [self.account_num, ordertype, stockcode, qty, price, hogagb, orderno]])
+        print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
+        self.set_order('testuser', '0006', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
  
+                        
 app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
 
-kiwoom.request_minute_chart('삼성전자', 30)
+type(kiwoom.account_num)
+
+kiwoom.make_order('삼성전자', 55000, 1)
+# kiwoom.request_minute_chart('삼성전자', 3)
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 
 # print(kiwoom.all_stocks)
