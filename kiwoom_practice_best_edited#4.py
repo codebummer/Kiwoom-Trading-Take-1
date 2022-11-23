@@ -191,6 +191,7 @@ class Kiwoom(QAxWidget):
         #     pass
         
     def _receive_chejan_data(self, gubun, itemcnt, fidlist):
+        print('gubun: -> in _receive_chejan_data\n', gubun)
         if gubun == 0: #order placed and made 
             self._real_chejan_placed_made(itemcnt, fidlist)
         elif gubun == 1:
@@ -202,9 +203,10 @@ class Kiwoom(QAxWidget):
             print('\n\nhogagubun in receive chejan data: ', add)
     
     def _domestic_balance_change(self, itemcnt, fidlist):
+        print('\n\itemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
         for item in itemcnt:
             for fid in fidlist:
-                print('\n\n_domestic_balance_chanage: -> gubun 1 received in _receive_chejan_data: \n', self._get_chejan_data(fid))
+                print('\nchejan data: -> in _domestic_balance_chanage:\n', self._get_chejan_data(fid))
        
     def _realtype_stock_status(self, code):
         add= {}
@@ -264,17 +266,20 @@ class Kiwoom(QAxWidget):
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
 
+    def _get_chejan_data(self, fid):
+        return self.dynamicCall('GetChejanData(int)', fid)
+
     def _get_repeat_cont(self, trcode, recordname):   
         print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
         return self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
     
-    def _real_chejan_placed_made(self, itemcnt, fidlist):        
+    def _real_chejan_placed_made(self, itemcnt, fidlist):    
+        print('\n\itemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
+    
         for idx in itemcnt:
             for fid in fidlist:
-                print('\n\n_real_chejan_placed_made: -> gubun 0 received in _receive_chejan_data: \n', self._get_chejan_data(fid))
+                print('\n\chejan data: ->in _real_chejan_placed_made\n', self._get_chejan_data(fid))
     
-    def _get_chejan_data(self, fid):
-        return self.dynamicCall('GetChejanData(int)', fid)
 
     def _opt10080(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
@@ -512,8 +517,8 @@ kiwoom = Kiwoom()
 type(kiwoom.account_num)
 
 
-kiwoom.make_order('삼성전자', 60900, 1, '03')
-# kiwoom.request_minute_chart('삼성전자', 3)
+# kiwoom.make_order('삼성전자', 61000, 1, '03')
+kiwoom.request_minute_chart('삼성전자', 30)
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 
 # print(kiwoom.all_stocks)
