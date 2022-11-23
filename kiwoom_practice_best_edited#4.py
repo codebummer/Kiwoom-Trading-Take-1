@@ -175,8 +175,15 @@ class Kiwoom(QAxWidget):
             self._realtype_order_made(code)
     
     def _receive_msg(self, scrno, rqname, trcode, msg):
-        print('\n\nscrno, rqname, trcode, msg in receive_msg: ->in _receive_tr_data\n', scrno, rqname, trcode, msg)
-        
+        print('\n\nscrno, rqname, trcode, msg: ->in _receive_msg\n', scrno, rqname, trcode, msg)
+        add = {}
+        stock = self.all_stocks[self.stockcode_non_realtime][0]
+        msg_trimmed = msg.split()
+        msg_trimmed[0] = msg_trimmed[0].strip('[]')
+        add[datetime.now().strftime('%H:%M:%S')] = [stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
+        self.tr_data['주문메세지'] = add
+        # df_name, df = self._df_generator('주문메세지', self.stockcode_non_realtime, add)
+        # self._data_to_sql('주문메세지', df_name+'.db', df)
  
         # try:
         #     self._event_loop_exit('real')
@@ -193,7 +200,12 @@ class Kiwoom(QAxWidget):
             for fid in fidlist:
                 add[self.orders_dict['호가구분'][fid]] = self._get_chejan_data(fid)
             print('\n\nhogagubun in receive chejan data: ', add)
-        
+    
+    def _domestic_balance_change(self, itemcnt, fidlist):
+        for item in itemcnt:
+            for fid in fidlist:
+                print('\n\n_domestic_balance_chanage: -> gubun 1 received in _receive_chejan_data: \n', self._get_chejan_data(fid))
+       
     def _realtype_stock_status(self, code):
         add= {}
         fidlist = self.fids_dict['주식시세']
@@ -259,7 +271,7 @@ class Kiwoom(QAxWidget):
     def _real_chejan_placed_made(self, itemcnt, fidlist):        
         for idx in itemcnt:
             for fid in fidlist:
-                print(self.dynamicCall('GetChejanData(int)', fid))
+                print('\n\n_real_chejan_placed_made: -> gubun 0 received in _receive_chejan_data: \n', self._get_chejan_data(fid))
     
     def _get_chejan_data(self, fid):
         return self.dynamicCall('GetChejanData(int)', fid)
@@ -488,9 +500,7 @@ class Kiwoom(QAxWidget):
         orderno: 원주문번호. 신규주문에는 공백 입력, 정정/취소시 입력합니다.        
         '''
         stockcode = self.all_stocks[stock]
-        
-        print('\n\ntypes of self.account_num, ordertype, stockcode, qty, price, hogagb, orderno: \n')
-        print([type(i) for i in [self.account_num, ordertype, stockcode, qty, price, hogagb, orderno]])
+        self.stockcode_non_realtime = stockcode
         print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
         self.set_order('testuser', '0006', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
  
@@ -501,7 +511,8 @@ kiwoom = Kiwoom()
 
 type(kiwoom.account_num)
 
-kiwoom.make_order('삼성전자', 55000, 1)
+
+kiwoom.make_order('삼성전자', 60900, 1, '03')
 # kiwoom.request_minute_chart('삼성전자', 3)
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 
