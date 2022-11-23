@@ -304,8 +304,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
 
         for idx, key in enumerate(add.keys()):
-            if idx in [0, 1, 3, 4, 5, 12]:                
-                add[key] = int(add[key][0])           
+            if idx in [0, 1, 3, 4, 5, 12] and add[key][0] != '':             
+                add[key][0] = int(add[key][0])           
         
         df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식분봉차트', df_name+'.db', df)   
@@ -321,8 +321,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
 
         for idx, key in enumerate(add.keys()):
-            if idx in [1, 2, 3, 4, 5, 6]:                
-                add[key] = int(add[key][0])   
+            if idx in [1, 2, 3, 4, 5, 6] and add[key][0] != '':               
+                add[key][0] = int(add[key][0])   
 
         print('\nadd in _opt10081: \n', add)                    
                
@@ -340,8 +340,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
            
         for idx, key in enumerate(add.keys()):
-            if idx in [0, 2, 3, 4, 5, 12]:                
-                add[key] = int(add[key][0])                  
+            if idx in [0, 2, 3, 4, 5, 12] and add[key][0] != '':            
+                add[key][0] = int(add[key][0])                  
 
         df_name, df = self._df_generator('주식틱차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식틱차트', df_name+'.db', df)       
@@ -357,8 +357,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, 'OPTKWFID', idx, key)]
          
         for idx, key in enumerate(add.keys()):
-            if idx not in [0, 1, 6, 11, 30, 37, 38]:                
-                add[key] = int(add[key][0])     
+            if idx not in [0, 1, 6, 11, 30, 37, 38] and add[key][0] != '':                
+                add[key][0] = int(add[key][0])     
 
         print('\n\n_optkwfid request received: \n', add)
   
@@ -472,8 +472,8 @@ type(kiwoom.account_num)
 
 
 # kiwoom.make_order('삼성전자', 61000, 1, '03')
-# kiwoom.request_minute_chart('삼성전자', 30)
-kiwoom.request_daily_chart('삼성전자', '20221123')
+kiwoom.request_minute_chart('삼성전자', 30)
+# kiwoom.request_daily_chart('삼성전자', '20221123')
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 
 # print(kiwoom.all_stocks)
