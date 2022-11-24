@@ -36,7 +36,7 @@ class Kiwoom(QAxWidget):
         self.remaining_data = False
         self.fidlist = []
         self.tr_data = {}
-        self.stockcode_non_realtime = 0
+        self.stockcode_non_realtime = 0        
         self.requesting_time_unit = ''
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
         self.fids_dict = {
@@ -61,6 +61,13 @@ class Kiwoom(QAxWidget):
                         946:'매도/매수구분', 950:'당일총매도손일', 951:'예수금', 307:'기준가', 8019:'손익율', 957:'신용금액', 958:'신용이자',
                         918:'만기일', 990:'당일실현손익(유가)', 991:'당일실현손익률(유가)', 993:'당일실현손익률(신용)', 397:'파생상품거래단위',
                         305:'상한가', 306:'하한가'},
+            '잔고' : {9201:'계좌번호', 9001:'종목코드,업종코드', 302:'종목명', 10:'현재가', 930:'보유수량', 931:'매입단가', 932:'총매입단가',
+                    933:'주문가능수량', 945:'당일순매수량', 946:'매도/매수구분', 950:'당일 총 매도 손익', 951:'예수금', 27:'매도호가', 
+                    28:'매수호가', 307:'기준가', 8019:'손익율', 397:'주식옵션거래단위'},
+            '신용잔고' : {9201:'계좌번호', 9001:'종목코드,업종코드', 917:'신용구분', 916:'대출일', 302:'종목명', 10:'현재가', 930:'보유수량', 
+                        931:'매입단가', 932:'총매입가', 933:'주문가능수량', 945:'당일순매수량', 946:'매도/매수구분', 950:'당일 총 매도 손익',
+                        951:'예수금', 27:'매도호가', 28:'매수호가', 307:'기준가', 8019:'손익율', 957:'신용금액', 958:'신용이자', 918:'만기일',
+                        990:'당일신현손익(유가)', 991:'당일실현손익률(유가)', 992:'당일신현손익(신용)', 993:'당일실현손익률(신용)', 959:'담보대출수량'},
             # Values below this line can be rearranged in its order
             # You can even remove FID from the values if you don't need that FID
             'opt10079' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분',
@@ -157,6 +164,11 @@ class Kiwoom(QAxWidget):
         exec(f'self.{loopname}.exit()')
     
     def _receive_tr_data(self, scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4):
+        '''
+        rqname : OPT10080, OPT10081... useder defined distinguishers
+        trcode : opt10080, opt10081... API given distinguishers
+        '''
+        
         if prenext == 2:
             self.remaining_data = True
         elif prenext == 0:
@@ -203,25 +215,46 @@ class Kiwoom(QAxWidget):
         #     self._event_loop_exit('real')
         # except AttributeError:
         #     pass
-        
-    def _receive_chejan_data(self, gubun, itemcnt, fidlist):
-        print('gubun, type(gubun): -> in _receive_chejan_data\n', gubun, type(gubun))
-        if gubun == 0: #order placed and made 
-            self._real_chejan_placed_made(itemcnt, fidlist)
-        elif gubun == 1:
-            self._domestic_balance_change(itemcnt, fidlist)
-        if fidlist in self.orders_dict['호가구분'].keys():
-            add = {}
-            for fid in fidlist:
-                add[self.orders_dict['호가구분'][fid]] = self._get_chejan_data(fid)
-            print('\n\nhogagubun in receive chejan data: ', add)
     
-    def _domestic_balance_change(self, itemcnt, fidlist):
-        print('\n\itemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
-        for item in itemcnt:
-            for fid in fidlist:
-                print('\nchejan data: -> in _domestic_balance_chanage:\n', self._get_chejan_data(fid))
-       
+
+
+    def _receive_chejan_data(self, gubun, itemcnt, fidlist): 
+        '''
+        itemcnt in _receive_chejan_data is the number of fid elements in fidlist
+        fidlist is received in the form of a one long string connected by ;
+        fidlist example : 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910
+        itemcnt for the above fidlist exmaple will be its number, 18    
+        '''   
+        print('gubun, type(gubun): -> in _receive_chejan_data\n', gubun, type(gubun))
+        if gubun == '0': #order placed and made 
+            self._real_chejan_placed_made(itemcnt, fidlist)
+        elif gubun == '1':
+            self._domestic_balance_change(itemcnt, fidlist)
+
+        # if fidlist in self.orders_dict['호가구분'].keys():
+        #     add = {}
+        #     for fid in fidlist:
+        #         add[self.orders_dict['호가구분'][fid]] = self._get_chejan_data(fid)
+        #     print('\n\nhogagubun in receive chejan data: ', add)
+    
+    def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
+        print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
+        fidlist = fidlist.split(';')
+        fidlist_checked = []
+        fid_indict = [str(key) for key in self.fids_dict['신용잔고'].keys()]
+        for fid in fidlist:
+            if fid in fid_indict:
+                fidlist_checked.append(fid)
+        add = {}
+        for fid in fidlist_checked:
+            add[self.fids_dict['신용잔고'][int(fid)]] = [self._get_chejan_data(fid)]
+        #the second argument, stockcode, is assigned '', 
+        #which makes _df_generator df_name without stock name in it.
+        df_name, df = self._df_generator('잔고변경', '', add) 
+        self._data_to_sql('잔고변경', df_name+'.db', df)   
+        print('\n\n_domestic_balance_change data in the follwing stored in db\n', self.tr_data[df_name])          
+        self.tr_data[df_name] = pd.DataFrame()
+    
     def _realtype_stock_status(self, code):
         add= {}
         fidlist = self.fids_dict['주식시세']
@@ -267,9 +300,14 @@ class Kiwoom(QAxWidget):
             self._data_to_sql('주문체결', df_name+'.db', df)
             self.tr_data[df_name] = pd.DataFrame()
 
-    def _df_generator(self, realtype, stockcode, data):
-        print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks[stockcode][0], data)
-        df_name = self.all_stocks[stockcode][0]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
+    def _df_generator(self, realtype, stockcode, data):   
+        if stockcode == '':
+            print('\n\nrealtype, stockcode, data in df_generator: \n', realtype, stockcode, data)
+            df_name = realtype+'_'+datetime.today().strftime('%Y_%m_%d')
+        else:
+            print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks[stockcode][0], data)
+            df_name = self.all_stocks[stockcode][0]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
+            
         if df_name in self.tr_data.keys():
             self.tr_data[df_name] = self.tr_data[df_name].append(pd.DataFrame(data), ignore_index=True)
             return df_name, self.tr_data[df_name]
@@ -287,86 +325,97 @@ class Kiwoom(QAxWidget):
         print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
         return self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
     
-    def _real_chejan_placed_made(self, itemcnt, fidlist):    
-        print('\n\itemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
-    
-        for idx in itemcnt:
-            for fid in fidlist:
-                print('\n\chejan data: ->in _real_chejan_placed_made\n', self._get_chejan_data(fid))
-    
+    def _real_chejan_placed_made(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
+        print('\nitemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
+        fidlist = fidlist.split(';')
+        fidlist_checked = []
+        fid_indict = [str(key) for key in self.fids_dict['주문체결'].keys()]
+        for fid in fidlist:
+            if fid in fid_indict:
+                fidlist_checked.append(fid)
+        add = {}
+        for fid in fidlist_checked:
+            add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
+        #the second argument, stockcode, is assigned '', 
+        #which makes _df_generator df_name without stock name in it.
+        df_name, df = self._df_generator('체결잔고', '', add) 
+        self._data_to_sql('체결잔고', df_name+'.db', df)   
+        print('\n\n_real_chejan_place_made data in the follwing stored in db\n', self.tr_data[df_name])          
+        self.tr_data[df_name] = pd.DataFrame()
 
     def _opt10080(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
-
+        df_name = ''
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10080']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
-
-        for idx, key in enumerate(add.keys()):
-            if idx in [0, 1, 3, 4, 5, 12] and add[key][0] != '':             
-                add[key][0] = int(add[key][0])           
-        
-        df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
+            df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식분봉차트', df_name+'.db', df)   
         print('\n\n_opt10080 request received:\n', self.tr_data[df_name])          
         self.tr_data[df_name] = pd.DataFrame()
+    
+
+        # for idx in range(data_cnt):
+        #     for keyidx, key in enumerate(add.keys()):
+        #         if keyidx in [0, 1, 3, 4, 5, 12] and add[key][0] != '':             
+        #             add[idx][key][0] = int(add[idx][key][0])           
+        
+        # df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
+        # self._data_to_sql('주식분봉차트', df_name+'.db', df)   
+        # print('\n\n_opt10080 request received:\n', self.tr_data[df_name])          
+        # self.tr_data[df_name] = pd.DataFrame()
  
     def _opt10081(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
-
+        df_name = ''
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10081']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-
-        for idx, key in enumerate(add.keys()):
-            if idx in [1, 2, 3, 4, 5, 6] and add[key][0] != '':               
-                add[key][0] = int(add[key][0])   
-
-        print('\nadd in _opt10081: \n', add)                    
-               
-        df_name, df = self._df_generator('주식일봉차트', self.stockcode_non_realtime, add)
+            df_name, df = self._df_generator('주식일봉차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식일봉차트', df_name+'.db', df)     
         print('\n\n_opt10081 request received:\n', self.tr_data[df_name])                
         self.tr_data[df_name] = pd.DataFrame()
 
+        # for idx, key in enumerate(add.keys()):
+        #     if idx in [1, 2, 3, 4, 5, 6] and add[key][0] != '':               
+        #         add[key][0] = int(add[key][0])   
+
+ 
     def _opt10079(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식틱차트')
-           
+        df_name = ''          
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10079']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-           
-        for idx, key in enumerate(add.keys()):
-            if idx in [0, 2, 3, 4, 5, 12] and add[key][0] != '':            
-                add[key][0] = int(add[key][0])                  
-
-        df_name, df = self._df_generator('주식틱차트', self.stockcode_non_realtime, add)
+            df_name, df = self._df_generator('주식틱차트', self.stockcode_non_realtime, add)
         self._data_to_sql('주식틱차트', df_name+'.db', df)       
         print('\n\n_opt10079 request received:\n', self.tr_data[df_name])                                 
-        self.tr_data[df_name] = pd.DataFrame()
+        self.tr_data[df_name] = pd.DataFrame()      
+
+        # for idx, key in enumerate(add.keys()):
+        #     if idx in [0, 2, 3, 4, 5, 12] and add[key][0] != '':            
+        #         add[key][0] = int(add[key][0])                  
     
     def _optkwfid(self, trcode):
         data_cnt = self._get_repeat_cont(trcode, '관심종목')
-        
+        df_name = ''
         add= {}
         for idx in range(data_cnt):
             for key in self.fids_dict['OPTKWFID']:
                 add[key] = [self._get_comm_data(trcode, 'OPTKWFID', idx, key)]
-         
-        for idx, key in enumerate(add.keys()):
-            if idx not in [0, 1, 6, 11, 30, 37, 38] and add[key][0] != '':                
-                add[key][0] = int(add[key][0])     
-
-        print('\n\n_optkwfid request received: \n', add)
-  
-        # df_name, df = self._df_generator('관심종목', self.stockcode_non_realtime, add)
-        # self._data_to_sql('관심종목', df_name+'.db', df)
-        # print('\n\n_optkwfid request received:\n', self.tr_data[df_name])                    
-        # self.tr_data[df_name] = pd.DataFrame()
+            df_name, df = self._df_generator('관심종목', add['종목코드'][0], add)
+        self._data_to_sql('관심종목', df_name+'.db', df)
+        print('\n\n_optkwfid request received:\n', self.tr_data[df_name])                    
+        self.tr_data[df_name] = pd.DataFrame()
+          
+        # for idx, key in enumerate(add.keys()):
+        #     if idx not in [0, 1, 6, 11, 30, 37, 38] and add[key][0] != '':                
+        #         add[key][0] = int(add[key][0])     
  
+
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
@@ -436,7 +485,7 @@ class Kiwoom(QAxWidget):
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
         codecnt = len(stocklist)
-        for idx, stock in enumerate(stocklist):
+        for idx, stock in enumerate(stocklist):          
             if idx == 0:
                 code_list += self.all_stocks[stock]
             else:
@@ -471,8 +520,9 @@ kiwoom = Kiwoom()
 type(kiwoom.account_num)
 
 
-# kiwoom.make_order('삼성전자', 61000, 1, '03')
-kiwoom.request_minute_chart('삼성전자', 30)
+# kiwoom.make_order('삼성전자', 61100, 1, '03')
+kiwoom.request_tick_chart('삼성전자', 10)
+# kiwoom.request_minute_chart('삼성전자', 10)
 # kiwoom.request_daily_chart('삼성전자', '20221123')
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 
