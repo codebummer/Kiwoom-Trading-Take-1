@@ -4,7 +4,7 @@ from PyQt5.QtCore import *
 import sqlite3
 import pandas as pd
 import time
-import sys, os
+import sys, os, json
 from datetime import datetime
 # import matplotlib.pyplot as plt
 
@@ -130,6 +130,9 @@ class Kiwoom(QAxWidget):
             stock = self.dynamicCall('GetMasterCodeName(QString)', [ticker])
             stock_list[ticker] = [stock]
             stock_list[stock] = ticker
+        with open('stocklist.json', 'w') as file:
+            json.dump(stock_list, file)
+        print('\nSaved Stock List in stocklist.json file')
         return stock_list
     
     def set_input_value(self, tr_name, tr_value):
