@@ -536,12 +536,12 @@ kiwoom = Kiwoom()
 
 type(kiwoom.account_num)
 
-
 # kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
 # kiwoom.request_tick_chart('삼성전자', 1)
-kiwoom.request_minute_chart('삼성전자', 30)
+# kiwoom.request_minute_chart('삼성전자', 30)
 # kiwoom.request_daily_chart('삼성전자', '20221125')
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
-# kiwoom.request_mass_data(kiwoom.all_stocks[f'{range(0,20,2)}'])
+stocks = list(kiwoom.all_stocks['stockkeys'].keys())
+kiwoom.request_mass_data(stocks[:100][0])
 
 # print(kiwoom.all_stocks)
