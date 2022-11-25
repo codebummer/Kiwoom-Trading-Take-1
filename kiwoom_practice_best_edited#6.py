@@ -123,13 +123,16 @@ class Kiwoom(QAxWidget):
 
     def stock_ticker(self):
         #GetCodeListByMarket() takes its argument as a list form. Put all the input values in []
-        response = self.dynamicCall('GetCodeListByMarket(QString)', ['']) # '' means all markets. '0' means KOSPI. '10' means KOSDAQ.
+        response = self.dynamicCall('GetCodeListByMarket(QString)', ['0','10']) # '' means all markets. '0' means KOSPI. '10' means KOSDAQ.
         tickers = response.split(';')
-        stock_list = {}
+        stock_list = {'tickerkeys':{}, 'stockkeys':{}}
         for ticker in tickers:
-            stock = self.dynamicCall('GetMasterCodeName(QString)', [ticker])
-            stock_list[ticker] = [stock]
-            stock_list[stock] = ticker
+            if ticker == '':
+                continue
+            else:
+                stock = self.dynamicCall('GetMasterCodeName(QString)', [ticker])
+                stock_list['tickerkeys'][ticker] = stock
+                stock_list['stockkeys'][stock] = ticker
         with open('stocklist.json', 'w') as file:
             json.dump(stock_list, file)
         print('\nSaved Stock List in stocklist.json file')
@@ -225,7 +228,7 @@ class Kiwoom(QAxWidget):
     def _receive_msg(self, scrno, rqname, trcode, msg):
         print('\n\nscrno, rqname, trcode, msg: ->in _receive_msg\n', scrno, rqname, trcode, msg)
         add = {}
-        stock = self.all_stocks[self.stockcode_non_realtime][0]
+        stock = self.all_stocks['tickerkeys'][self.stockcode_non_realtime]
         msg_trimmed = msg.split()
         msg_trimmed[0] = msg_trimmed[0].strip('[]')
         add[datetime.now().strftime('%H:%M:%S')] = [stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
@@ -327,8 +330,8 @@ class Kiwoom(QAxWidget):
             print('\n\nrealtype, stockcode, data in df_generator: \n', realtype, stockcode, data)
             df_name = realtype+'_'+datetime.today().strftime('%Y_%m_%d')
         else:
-            print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks[stockcode][0], data)
-            df_name = self.all_stocks[stockcode][0]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
+            print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks['tickerkeys'][stockcode], data)
+            df_name = self.all_stocks['tickerkeys'][stockcode]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
             
         if df_name in self.tr_data.keys():
             self.tr_data[df_name] = self.tr_data[df_name].append(pd.DataFrame(data), ignore_index=True)
@@ -439,7 +442,7 @@ class Kiwoom(QAxWidget):
         date: 일자 YYYYMMDD
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
-        stockcode = self.all_stocks[stock]
+        stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode_non_realtime = stockcode  
         self.requesting_time_unit = ''      
         self.set_input_value('종목코드', stockcode)
@@ -460,7 +463,7 @@ class Kiwoom(QAxWidget):
         mintime: one of 1, 3, 5, 10, 15, 30, 45, 60 
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
-        stockcode = self.all_stocks[stock]
+        stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode_non_realtime = stockcode      
         self.requesting_time_unit = str(mintime)+'분'
         self.set_input_value('종목코드', stockcode)
@@ -481,7 +484,7 @@ class Kiwoom(QAxWidget):
         ticktime: one of 1, 3, 5, 10, 30
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
-        stockcode = self.all_stocks[stock]
+        stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode_non_realtime = stockcode      
         self.requesting_time_unit = str(ticktime)+'틱'
         self.set_input_value('종목코드', stockcode)
@@ -501,9 +504,9 @@ class Kiwoom(QAxWidget):
         codecnt = len(stocklist)
         for idx, stock in enumerate(stocklist):          
             if idx == 0:
-                code_list += self.all_stocks[stock]
+                code_list += self.all_stocks['stockkeys'][stock]
             else:
-                code_list += ';'+self.all_stocks[stock] #CommKwRqData() receives multiple stock tickers as one string separated with ;
+                code_list += ';'+self.all_stocks['stockkeys'][stock] #CommKwRqData() receives multiple stock tickers as one string separated with ;
         print('\n\nRequesting the real time data of the following tickers: ', code_list)
         self.comm_kw_rq_data(code_list, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0005')
             
@@ -521,7 +524,7 @@ class Kiwoom(QAxWidget):
         ordertype: 주문유형 1:신규매수(default), 2:신규매도 3:매수취소, 4:매도취소, 5:매수정정, 6:매도정정      
         orderno: 원주문번호. 신규주문에는 공백 입력, 정정/취소시 입력합니다.        
         '''
-        stockcode = self.all_stocks[stock]
+        stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode_non_realtime = stockcode
         print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
         self.set_order('testuser', '0006', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
