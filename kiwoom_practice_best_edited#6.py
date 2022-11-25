@@ -135,7 +135,9 @@ class Kiwoom(QAxWidget):
                 stock_list['stockkeys'][stock] = ticker
         with open('stocklist.json', 'w') as file:
             json.dump(stock_list, file)
-        print('\nSaved Stock List in stocklist.json file')
+        with open('tickers.txt', 'w') as file:
+            file.write(str(list(stock_list['tickerkeys'].keys())))
+        print('\nSaved Stock List in stocklist.json file and Ticker List in tickers.txt')
         return stock_list
     
     def set_input_value(self, tr_name, tr_value):
