@@ -179,27 +179,31 @@ class Kiwoom(QAxWidget):
 
         if rqname == 'OPT10081':
             df_name, df = self._opt10081(rqname, trcode)
-            self._data_to_sql('주식일봉차트', df_name+'.db', df)     
-            print('\n\n_opt10081 request received:\n', self.tr_data[df_name])                
-            self.tr_data[df_name] = pd.DataFrame()
+            if self.remaining_data == False:
+                self._data_to_sql('주식일봉차트', df_name+'.db', df)     
+                print('\n\n_opt10081 request received:\n', self.tr_data[df_name])                
+                self.tr_data[df_name] = pd.DataFrame()
 
         elif rqname == 'OPT10079':
             df_name, df = self._opt10079(rqname, trcode)
-            self._data_to_sql('주식틱차트', df_name+'.db', df)       
-            print('\n\n_opt10079 request received:\n', self.tr_data[df_name])                                 
-            self.tr_data[df_name] = pd.DataFrame()      
+            if self.remaining_data == False:
+                self._data_to_sql('주식틱차트', df_name+'.db', df)       
+                print('\n\n_opt10079 request received:\n', self.tr_data[df_name])                                 
+                self.tr_data[df_name] = pd.DataFrame()      
 
         elif rqname == 'OPT10080':
             df_name, df = self._opt10080(rqname, trcode)
-            self._data_to_sql('주식분봉차트', df_name+'.db', df)   
-            print('\n\n_opt10080 request received:\n', self.tr_data[df_name])          
-            self.tr_data[df_name] = pd.DataFrame()   
+            if self.remaining_data == False:
+                self._data_to_sql('주식분봉차트', df_name+'.db', df)   
+                print('\n\n_opt10080 request received:\n', self.tr_data[df_name])          
+                self.tr_data[df_name] = pd.DataFrame()   
 
         elif rqname == 'OPTKWFID':
             df_name, df = self._optkwfid(trcode)
-            self._data_to_sql('관심종목', df_name+'.db', df)
-            print('\n\n_optkwfid request received:\n', self.tr_data[df_name])                    
-            self.tr_data[df_name] = pd.DataFrame()
+            if self.remaining_data == False:
+                self._data_to_sql('관심종목', df_name+'.db', df)
+                print('\n\n_optkwfid request received:\n', self.tr_data[df_name])                    
+                self.tr_data[df_name] = pd.DataFrame()
 
         # try:
         #     self._event_loop_exit('tr')
@@ -529,8 +533,8 @@ type(kiwoom.account_num)
 
 # kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
 # kiwoom.request_tick_chart('삼성전자', 1)
-# kiwoom.request_minute_chart('삼성전자', 10)
-kiwoom.request_daily_chart('삼성전자', '20221125')
+kiwoom.request_minute_chart('삼성전자', 30)
+# kiwoom.request_daily_chart('삼성전자', '20221125')
 # kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
 # kiwoom.request_mass_data(kiwoom.all_stocks[f'{range(0,20,2)}'])
 
