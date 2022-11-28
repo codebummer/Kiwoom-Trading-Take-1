@@ -439,14 +439,21 @@ class Kiwoom(QAxWidget):
     
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
-        stocks = []
-        if len(stocklist) == 1:
+        stocks = [] 
+        #when stocklist is a long string with stock names separated with ,
+        #'삼성전자, 현대차, LG전자'
+        if type(stocklist) == str:
             for stock in stocklist[0].split(','):
                 stocks.append(stock.strip())
-        else:
+        #when one list filled with stock name strings, it will actually be a list covered with a tuple
+        #request_mass_data(stocks[:100]) -> stocks[:100] is in the form of ['삼성전자', '현대차']
+        #the stocklist argument gets that input in the form of (['삼성전자', '현대차'])
+        elif type(stocklist[0]) == list: 
+            stocks = stocklist[0]
+        else: #when stocklist is a list filled with strings. stocklist=['삼성전자', '현대차']
             stocks = stocklist
         codecnt = len(stocks)
-        for idx, stock in enumerate(stocks):          
+        for idx, stock in enumerate(stocks):      
             if idx == 0:
                 code_list += self.all_stocks['stockkeys'][stock]
             else:
@@ -479,15 +486,15 @@ app = QApplication(sys.argv)
 kiwoom = Kiwoom()
 
 type(kiwoom.account_num)
-
+kiwoom.timeset(1)
 # kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
 # kiwoom.request_tick_chart('삼성전자', 1)
-kiwoom.request_minute_chart('삼성전자', 30)
+# kiwoom.request_minute_chart('삼성전자', 30)
 # kiwoom.request_daily_chart('삼성전자', '20221125')
-kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
-# stocks = list(kiwoom.all_stocks['stockkeys'].keys())
-# kiwoom.request_mass_data(stocks[:100][0])
+# kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
+stocks = list(kiwoom.all_stocks['stockkeys'].keys())
+kiwoom.request_mass_data(stocks[50:60])
 
 # if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
-kiwoom.timeset(1)
+
 # print(kiwoom.all_stocks)
