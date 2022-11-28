@@ -15,7 +15,8 @@ if not os.path.exists(path):
      os.mkdir(path)
 os.chdir(path) 
 
-TR_REQ_TIME_INTERVAL = 0.2
+# TR_REQ_TIME_INTERVAL = 0.2
+TR_REQ_TIME_INTERVAL = 0.4
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -393,7 +394,6 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10081', 'opt10081', 0, '0001')
 
-        # while self.remaining_data == True:
         for _ in range(iter):
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
@@ -416,7 +416,6 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10080', 'opt10080', 0, '0003')
 
-        # while self.remaining_data == True:
         for _ in range(iter):
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
@@ -439,7 +438,7 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10079', 'opt10079', 0, '0003')
 
-        # while self.remaining_data == True:
+        print('Request iteration: ', iter)
         for _ in range(iter):
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
