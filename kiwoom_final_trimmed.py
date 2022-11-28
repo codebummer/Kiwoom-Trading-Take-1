@@ -378,10 +378,11 @@ class Kiwoom(QAxWidget):
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
-    def request_daily_chart(self, stock, date, pricetype=1):
+    def request_daily_chart(self, stock, date, iter=100, pricetype=1):
         '''
         stock: 주식종목명
         date: 일자 YYYYMMDD
+        iter: 데이터 수신 반복회수 (1회 수신 900여개)
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
@@ -392,17 +393,19 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10081', 'opt10081', 0, '0001')
 
-        while self.remaining_data == True:
+        # while self.remaining_data == True:
+        for _ in range(iter):
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('기준일자', date)
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10081', 'opt10081', 2, '0002')
 
-    def request_minute_chart(self, stock, mintime=30, pricetype=1):
+    def request_minute_chart(self, stock, mintime=30, iter=100, pricetype=1):
         '''
         stock: name of a stock
         mintime: one of 1, 3, 5, 10, 15, 30, 45, 60 
+        iter: 데이터 수신 반복회수 (1회 수신 900여개)
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
@@ -413,17 +416,19 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10080', 'opt10080', 0, '0003')
 
-        while self.remaining_data == True:
+        # while self.remaining_data == True:
+        for _ in range(iter):
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', mintime)
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10080', 'opt10080', 2, '0004')
     
-    def request_tick_chart(self, stock, ticktime=1, pricetype=1):
+    def request_tick_chart(self, stock, ticktime=1, iter=100, pricetype=1):
         '''
         stock: name of a stock
         ticktime: one of 1, 3, 5, 10, 30
+        iter: 데이터 수신 반복회수 (1회 수신 900여개)
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
@@ -434,7 +439,8 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10079', 'opt10079', 0, '0003')
 
-        while self.remaining_data == True:
+        # while self.remaining_data == True:
+        for _ in range(iter):
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', ticktime)
@@ -495,13 +501,12 @@ type(kiwoom.account_num)
 kiwoom.timeset(1)
 # kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
 # kiwoom.request_tick_chart('삼성전자', 1)
-tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
+tick = lambda stock, iter=100: kiwoom.request_tick_chart(stock, 1, iter)
 # stocks = lambda x: [i.strip() for i in x.split(',')]
 # for stock in stocks('삼성전자, 현대차, 컬러레이'):
 #     tick(stock)
 # tick('컬러레이')
-for _ in range(100):
-    tick('삼성전자')
+tick('삼성전자')
 # kiwoom.request_minute_chart('삼성전자', 30)
 # kiwoom.request_daily_chart('삼성전자', '20221125')
 # kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
