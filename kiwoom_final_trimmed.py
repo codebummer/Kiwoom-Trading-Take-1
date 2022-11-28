@@ -111,8 +111,11 @@ class Kiwoom(QAxWidget):
 
     def _make_timer(self):
         self.savetimer = QTimer()
-        self.savetimer.timeout.connect(self._timersave_df)
+        self._time_event_handler()
         self.timeset()
+    
+    def _time_event_handler(self):
+        self.savetimer.timeout.connect(self._timersave_df)
     
     def timeset(self, minute_interval=5):
         millisec_interval = minute_interval * 60_000
@@ -486,6 +489,8 @@ app = QApplication(sys.argv)
 kiwoom = Kiwoom()
 
 type(kiwoom.account_num)
+
+# if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
 kiwoom.timeset(1)
 # kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
 # kiwoom.request_tick_chart('삼성전자', 1)
@@ -494,7 +499,4 @@ kiwoom.timeset(1)
 # kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
 stocks = list(kiwoom.all_stocks['stockkeys'].keys())
 kiwoom.request_mass_data(stocks[50:60])
-
-# if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
-
 # print(kiwoom.all_stocks)
