@@ -130,8 +130,9 @@ class Kiwoom(QAxWidget):
             table = names[0] if len(names) == 4 else names[0]+' '+names[1]
             self._data_to_sql(table, df_name+'.db', df)
             print(f'{table} is saved in {df_name}.db')            
-        self.tr_data = {}           
-        print(f'\nAutosaving for every {self.savetimer.interval()/60_000} minute completed.')
+        self.tr_data = {}        
+        minute_interval = int(self.savetimer.interval()/60_000)
+        print(f'\nAutosaving for every {minute_interval} minute completed.')
         
     def data_from_sql(self, tablename, filename):
         with sqlite3.connect(filename) as file:
