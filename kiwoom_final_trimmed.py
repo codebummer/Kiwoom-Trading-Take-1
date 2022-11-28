@@ -144,10 +144,10 @@ class Kiwoom(QAxWidget):
             
     def _df_generator(self, realtype, stockcode, data):   
         if stockcode == '':
-            print('\n\nrealtype, stockcode, data in df_generator: \n', realtype, stockcode, data)
+            # print('\n\nrealtype, stockcode, data in df_generator: \n', realtype, stockcode, data)
             df_name = realtype+'_'+datetime.today().strftime('%Y_%m_%d')
         else:
-            print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks['tickerkeys'][stockcode], data)
+            # print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks['tickerkeys'][stockcode], data)
             df_name = self.all_stocks['tickerkeys'][stockcode]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
             
         if df_name in self.tr_data.keys():
@@ -237,6 +237,11 @@ class Kiwoom(QAxWidget):
 
         elif rqname == 'OPTKWFID':
             df_name, df = self._optkwfid(trcode)
+        
+        try:
+            self._event_loop_exit('tr')
+        except AttributeError:
+            pass
     
     def _receive_real_data(self, code, realtype, realdata):
         if realtype == '주식시세':
@@ -429,6 +434,7 @@ class Kiwoom(QAxWidget):
         iter: 데이터 수신 반복회수 (1회 수신 900여개)
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
+        print('self.remaining_data for 1st request: ', self.remaining_data)
         stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode_non_realtime = stockcode      
         self.requesting_time_unit = str(ticktime)+'틱'
@@ -437,7 +443,9 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10079', 'opt10079', 0, '0003')
 
+
         while self.remaining_data == True:
+            print('self.remaining_data for non 1st request: ', self.remaining_data)
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', ticktime)
@@ -497,11 +505,11 @@ type(kiwoom.account_num)
 # if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
 kiwoom.timeset(1)
 # kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
-kiwoom.request_tick_chart('삼성전자', 1)
+# kiwoom.request_tick_chart('삼성전자', 1)
 tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
 stocks = lambda x: [i.strip() for i in x.split(',')]
-for stock in stocks('삼성전자, 현대차, 컬러레이'):
-    tick(stock)
+# for stock in stocks('삼성전자, 현대차, 컬러레이'):
+#     tick(stock)
 # tick('컬러레이')
 tick('삼성전자')
 # kiwoom.request_minute_chart('삼성전자', 30)
