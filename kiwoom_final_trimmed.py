@@ -432,7 +432,7 @@ class Kiwoom(QAxWidget):
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('틱범위', ticktime)
         self.set_input_value('수정주가구분', pricetype)
-        self.comm_rq_data('OPT10079', 'opt10079', 2, '0003')
+        self.comm_rq_data('OPT10079', 'opt10079', 0, '0003')
 
         while self.remaining_data == True:
             time.sleep(TR_REQ_TIME_INTERVAL)
@@ -501,7 +501,7 @@ tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
 #     tick(stock)
 # tick('컬러레이')
 for _ in range(100):
-    tick('컬러레이')
+    tick('삼성전자')
 # kiwoom.request_minute_chart('삼성전자', 30)
 # kiwoom.request_daily_chart('삼성전자', '20221125')
 # kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
