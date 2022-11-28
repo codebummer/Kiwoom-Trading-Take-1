@@ -101,8 +101,7 @@ class Kiwoom(QAxWidget):
         self.OnReceiveRealData.connect(self._receive_real_data)
         self.OnReceiveMsg.connect(self._receive_msg)
         self.OnReceiveChejanData.connect(self._receive_chejan_data)
-        self.timeout.connect(self._timersave_df)
-    
+        
     def _comm_connect_event(self, err_code):
         if err_code == 0:
             print('Successfully logged in')
@@ -112,11 +111,12 @@ class Kiwoom(QAxWidget):
 
     def _make_timer(self):
         self.savetimer = QTimer()
+        self.savetimer.timeout.connect(self._timersave_df)
         self.timeset()
     
     def timeset(self, minute_interval=5):
         millisec_interval = minute_interval * 60_000
-        self.savetimer.setInverval(millisec_interval)
+        self.savetimer.setInterval(millisec_interval)
         self.savetimer.start()
         print(f'Autosaving interval is set for {minute_interval} minute(s)')        
     
@@ -160,7 +160,7 @@ class Kiwoom(QAxWidget):
 
     def stock_ticker(self):
         #GetCodeListByMarket() takes its argument as a list form. Put all the input values in []
-        response = self.dynamicCall('GetCodeListByMarket(QString)', ['0','10']) # '' means all markets. '0' means KOSPI. '10' means KOSDAQ.
+        response = self.dynamicCall('GetCodeListByMarket(QString)', ['']) # '' means all markets. '0' means KOSPI. '10' means KOSDAQ.
         tickers = response.split(';')
         stock_list = {'tickerkeys':{}, 'stockkeys':{}}
         for ticker in tickers:
@@ -527,8 +527,14 @@ class Kiwoom(QAxWidget):
     
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
-        codecnt = len(stocklist)
-        for idx, stock in enumerate(stocklist):          
+        stocks = []
+        if len(stocklist) == 1:
+            for stock in stocklist[0].split(','):
+                stocks.append(stock.strip())
+        else:
+            stocks = stocklist
+        codecnt = len(stocks)
+        for idx, stock in enumerate(stocks):          
             if idx == 0:
                 code_list += self.all_stocks['stockkeys'][stock]
             else:
@@ -566,9 +572,9 @@ type(kiwoom.account_num)
 # kiwoom.request_tick_chart('삼성전자', 1)
 # kiwoom.request_minute_chart('삼성전자', 30)
 # kiwoom.request_daily_chart('삼성전자', '20221125')
-# kiwoom.request_mass_data('삼성전자', 'NAVER', '컬러레이', '현대차', '카카오', 'LG에너지솔루션')
-stocks = list(kiwoom.all_stocks['stockkeys'].keys())
-kiwoom.request_mass_data(stocks[:100][0])
+kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
+# stocks = list(kiwoom.all_stocks['stockkeys'].keys())
+# kiwoom.request_mass_data(stocks[:100][0])
 
 # if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
 kiwoom.timeset(10)
