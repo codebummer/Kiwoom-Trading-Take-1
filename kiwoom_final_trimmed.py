@@ -15,8 +15,7 @@ if not os.path.exists(path):
      os.mkdir(path)
 os.chdir(path) 
 
-# TR_REQ_TIME_INTERVAL = 0.2
-TR_REQ_TIME_INTERVAL = 0.4
+TR_REQ_TIME_INTERVAL = 0.2
 
 class Kiwoom(QAxWidget):
     def __init__(self):
@@ -35,7 +34,7 @@ class Kiwoom(QAxWidget):
 
     def reset(self):
         self.account_num = 0
-        self.remaining_data = False
+        self.remaining_data = True
         self.fidlist = []
         self.tr_data = {}
         self.stockcode_non_realtime = 0        
@@ -379,7 +378,7 @@ class Kiwoom(QAxWidget):
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
 
-    def request_daily_chart(self, stock, date, iter=100, pricetype=1):
+    def request_daily_chart(self, stock, date, pricetype=1):
         '''
         stock: 주식종목명
         date: 일자 YYYYMMDD
@@ -394,14 +393,14 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10081', 'opt10081', 0, '0001')
 
-        for _ in range(iter):
+        while self.remaining_data == True:
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('기준일자', date)
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10081', 'opt10081', 2, '0002')
 
-    def request_minute_chart(self, stock, mintime=30, iter=100, pricetype=1):
+    def request_minute_chart(self, stock, mintime=30, pricetype=1):
         '''
         stock: name of a stock
         mintime: one of 1, 3, 5, 10, 15, 30, 45, 60 
@@ -416,14 +415,14 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10080', 'opt10080', 0, '0003')
 
-        for _ in range(iter):
+        while self.remaining_data == True:
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', mintime)
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data('OPT10080', 'opt10080', 2, '0004')
     
-    def request_tick_chart(self, stock, ticktime=1, iter=100, pricetype=1):
+    def request_tick_chart(self, stock, ticktime=1, pricetype=1):
         '''
         stock: name of a stock
         ticktime: one of 1, 3, 5, 10, 30
@@ -438,8 +437,7 @@ class Kiwoom(QAxWidget):
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10079', 'opt10079', 0, '0003')
 
-        print('Request iteration: ', iter)
-        for _ in range(iter):
+        while self.remaining_data == True:
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', ticktime)
@@ -499,11 +497,11 @@ type(kiwoom.account_num)
 # if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
 kiwoom.timeset(1)
 # kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
-# kiwoom.request_tick_chart('삼성전자', 1)
-tick = lambda stock, iter=100: kiwoom.request_tick_chart(stock, 1, iter)
-# stocks = lambda x: [i.strip() for i in x.split(',')]
-# for stock in stocks('삼성전자, 현대차, 컬러레이'):
-#     tick(stock)
+kiwoom.request_tick_chart('삼성전자', 1)
+tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
+stocks = lambda x: [i.strip() for i in x.split(',')]
+for stock in stocks('삼성전자, 현대차, 컬러레이'):
+    tick(stock)
 # tick('컬러레이')
 tick('삼성전자')
 # kiwoom.request_minute_chart('삼성전자', 30)
