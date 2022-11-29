@@ -126,8 +126,10 @@ class Kiwoom(QAxWidget):
     def _timersave_df(self):
         print('\nAutosaving in progress...')
         for df_name, df in self.tr_data.items():
+            print('df_name, df -> in _timersave_df: \n', df_name, df)
             names = df_name.split('_')
-            table = names[0] if len(names) == 4 else names[0]+' '+names[1]
+            table = names[0] if len(names) == 4 or 1 else names[0]+' '+names[1]
+            df = pd.DataFrame(df) if type(df) == dict else df
             self._data_to_sql(table, df_name+'.db', df)
             print(f'{table} is saved in {df_name}.db')            
         self.tr_data = {}        
@@ -140,6 +142,12 @@ class Kiwoom(QAxWidget):
     
     def _data_to_sql(self, tablename, filename, df):
         with sqlite3.connect(filename) as file:
+            query = '''SELECT name FROM sqlite_master WHERE type='table';'''
+            tablename = file.cursor().execute(query).fetall()[0][0]
+            columnname = pd.read_sql(f'PRAGMA TABLE_INFO({tablename})', file)
+            if tablename in ['체결잔고', '잔고변경'] and not columnname in df.columns:
+                              
+                
             df.to_sql(tablename, file, if_exists='append')
             
     def _df_generator(self, realtype, stockcode, data):   
@@ -275,9 +283,26 @@ class Kiwoom(QAxWidget):
         elif gubun == '1':
             self._domestic_balance_change(itemcnt, fidlist)
         
-        try:
-            self._event_loop_exit('order')
-    
+        # try:
+        #     self._event_loop_exit('order')
+        # except AttributeError:
+        #     pass
+
+    def _real_chejan_placed_made(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
+        print('\nitemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
+        fidlist = fidlist.split(';')
+        fidlist_checked = []
+        fid_indict = [str(key) for key in self.fids_dict['주문체결'].keys()]
+        for fid in fidlist:
+            if fid in fid_indict:
+                fidlist_checked.append(fid)
+        add = {}
+        for fid in fidlist_checked:
+            add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
+        #the second argument, stockcode, is assigned '', 
+        #which makes _df_generator df_name without stock name in it.
+        df_name, df = self._df_generator('체결잔고', '', add) 
+
     def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
         print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
         fidlist = fidlist.split(';')
@@ -333,20 +358,6 @@ class Kiwoom(QAxWidget):
         print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
         return self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
     
-    def _real_chejan_placed_made(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
-        print('\nitemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
-        fidlist = fidlist.split(';')
-        fidlist_checked = []
-        fid_indict = [str(key) for key in self.fids_dict['주문체결'].keys()]
-        for fid in fidlist:
-            if fid in fid_indict:
-                fidlist_checked.append(fid)
-        add = {}
-        for fid in fidlist_checked:
-            add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
-        #the second argument, stockcode, is assigned '', 
-        #which makes _df_generator df_name without stock name in it.
-        df_name, df = self._df_generator('체결잔고', '', add) 
 
     def _opt10080(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
@@ -509,14 +520,18 @@ type(kiwoom.account_num)
 
 # if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
 kiwoom.timeset(1)
-# kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
+kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
+buy = lambda stock, price, qty: kiwoom.make_order(stock, price, qty, '00')
+sell = lambda stock, price, qty: kiwoom.make_order(stock, price, qty, '00', 2)
+buy('삼성전자', 61000, 1)
+# sell('삼성전자', 62000, 1)
 # kiwoom.request_tick_chart('삼성전자', 1)
-tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
-stocks = lambda x: [i.strip() for i in x.split(',')]
+# tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
+# stocks = lambda x: [i.strip() for i in x.split(',')]
 # for stock in stocks('삼성전자, 현대차, 컬러레이'):
 #     tick(stock)
 # tick('컬러레이')
-tick('삼성전자')
+# tick('삼성전자')
 # kiwoom.request_minute_chart('삼성전자', 30)
 # kiwoom.request_daily_chart('삼성전자', '20221125')
 # kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
