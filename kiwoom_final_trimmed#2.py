@@ -144,9 +144,10 @@ class Kiwoom(QAxWidget):
         with sqlite3.connect(filename) as file:
             query = '''SELECT name FROM sqlite_master WHERE type='table';'''
             tablename = file.cursor().execute(query).fetall()[0][0]
-            columnname = pd.read_sql(f'PRAGMA TABLE_INFO({tablename})', file)
-            if tablename in ['체결잔고', '잔고변경'] and not columnname in df.columns:
-                              
+            columnname = pd.read_sql(f'PRAGMA TABLE_INFO({tablename})', file).columns
+            if tablename in ['체결잔고', '잔고변경'] and not df.columns in columnname:
+                newcolumn = datetime.now().strftime('AT_%H_%M_%S')
+                file.cursor().execute(f'ALTER TABLE {tablename} ADD COLUMN {newcolumn} varchar(255);')                              
                 
             df.to_sql(tablename, file, if_exists='append')
             
@@ -267,7 +268,7 @@ class Kiwoom(QAxWidget):
         stock = self.all_stocks['tickerkeys'][self.stockcode_non_realtime]
         msg_trimmed = msg.split()
         msg_trimmed[0] = msg_trimmed[0].strip('[]')
-        add[datetime.now().strftime('%H:%M:%S')] = [stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
+        add[datetime.now().strftime('AT_%H_%M_%S')] = [stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
         self.tr_data['주문메세지'] = add  
 
     def _receive_chejan_data(self, gubun, itemcnt, fidlist): 
