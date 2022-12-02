@@ -2,7 +2,7 @@ import json, os, sqlite3, requests, sys
 import pandas as pd
 
 sys.path.append(r'D:\myprojects\TradingDB')
-from all_banks_fisis_api_key import *
+from fisis_key import *
 # os.chdir(r'D:\myprojects\TradingDB')
 
 lrgs = 'AJHIFWGXDCKTNEOQPSMLBR'
