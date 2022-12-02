@@ -11,7 +11,7 @@ allbanks = {}
 for part in parts:
     params = {'auth' : api_key, 'partDiv' : part, 'lang' : 'kr'}
     with requests.get(path, params) as response:
-        byte = response.content
+#         byte = response.content
         replyjson = response.json()
         allbanks[part] = replyjson
 
