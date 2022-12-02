@@ -145,10 +145,12 @@ class Kiwoom(QAxWidget):
             query = '''SELECT name FROM sqlite_master WHERE type='table';'''
             tablename = file.cursor().execute(query).fetchall()[0][0]
             columnname = pd.read_sql(f'PRAGMA TABLE_INFO({tablename})', file).columns
+            columnvalues = df[df.columns[-1]].values
             if tablename in ['체결잔고', '잔고변경'] and not df.columns in columnname:
                 file.cursor().execute(f'ALTER TABLE {tablename} ADD COLUMN {df.columns[-1]} varchar(255);')                              
-                
-            df.to_sql(tablename, file, if_exists='append')
+                file.cursor().execute(f'INSERT INTO {tablename} ({df.columns[-1]}) VALUES ({columnvalues});')
+            else:
+                df.to_sql(tablename, file, if_exists='append')
             
     def _df_generator(self, realtype, stockcode, data):   
         if stockcode == '':
