@@ -1,8 +1,11 @@
 
-import requests, json, os, sqlite3
+import requests, json, os, sqlite3, sys
 import pandas as pd
+
+sys.path.append(r'D:\myprojects\TradingDB')
 from all_banks_fisis_api_key import *
-os.chdir(r'D:\myprojects\TradingDB')
+# os.chdir(r'D:\myprojects\TradingDB')
+
 
 parts = 'AFDNPBJWCESRHGKOM'
 path = 'http://fisis.fss.or.kr/openapi/companySearch.json'
