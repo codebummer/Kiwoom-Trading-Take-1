@@ -143,11 +143,10 @@ class Kiwoom(QAxWidget):
     def _data_to_sql(self, tablename, filename, df):
         with sqlite3.connect(filename) as file:
             query = '''SELECT name FROM sqlite_master WHERE type='table';'''
-            tablename = file.cursor().execute(query).fetall()[0][0]
+            tablename = file.cursor().execute(query).fetchall()[0][0]
             columnname = pd.read_sql(f'PRAGMA TABLE_INFO({tablename})', file).columns
             if tablename in ['체결잔고', '잔고변경'] and not df.columns in columnname:
-                newcolumn = datetime.now().strftime('AT_%H_%M_%S')
-                file.cursor().execute(f'ALTER TABLE {tablename} ADD COLUMN {newcolumn} varchar(255);')                              
+                file.cursor().execute(f'ALTER TABLE {tablename} ADD COLUMN {df.columns[-1]} varchar(255);')                              
                 
             df.to_sql(tablename, file, if_exists='append')
             
@@ -521,11 +520,15 @@ type(kiwoom.account_num)
 
 # if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
 kiwoom.timeset(1)
-kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
+# kiwoom.make_order('삼성전자', 61100, 1, '03', 2)
 buy = lambda stock, price, qty: kiwoom.make_order(stock, price, qty, '00')
 sell = lambda stock, price, qty: kiwoom.make_order(stock, price, qty, '00', 2)
-buy('삼성전자', 61000, 1)
+buyfast = lambda stock, price, qty: kiwoom.make_order(stock, price, qty, '03')
+sellfast = lambda stock, price, qty: kiwoom.make_order(stock, price, qty, '03', 2)
+# buy('삼성전자', 61000, 1)
 # sell('삼성전자', 62000, 1)
+# buyfast('삼성전자', 61000, 1)
+sellfast('삼성전자', 62000, 1)
 # kiwoom.request_tick_chart('삼성전자', 1)
 # tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
 # stocks = lambda x: [i.strip() for i in x.split(',')]
