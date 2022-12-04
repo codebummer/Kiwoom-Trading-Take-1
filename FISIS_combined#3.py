@@ -36,15 +36,21 @@ for pick in picks:
 major.reset_index(inplace=True)
 
 # select stats to process
+# focusstats = pd.DataFrame()
+# add = lambda x:focusstats.append(x)
+# get = [[28,36], [39,44], [56,58], [67, 72], [84, 92], [707, 724]]
+# for focus in get:
+#     if len(focus) == 1:
+#         focusstats = add(stats.loc[focus])
+#     else:
+#         for idx in list(range(focus[0], focus[1])):
+#             focusstats = add(stats.loc[idx])
+            
 focusstats = pd.DataFrame()
-add = lambda x:focusstats.append(x)
-get = [[28,36], [39,44], [56,58], [67, 72], [84, 92], [707, 724]]
-for focus in get:
-    if len(focus) == 1:
-        focusstats = add(stats.loc[focus])
-    else:
-        for idx in list(range(focus[0], focus[1])):
-            focusstats = add(stats.loc[idx])
+screen = lambda x:focusstats.append(stats[stats['list_nm'].str.contains(x)])
+picks = ['자산건전성', '자본적정성', '여신건전성', '유동성', '자금조달', '대출금 운용', '여신건전성', '연채율', 'BIS', '부실채권', '용도별 대출채권', '업종별 대출금']
+for pick in picks:
+    focusstats = screen(pick)            
 focusstats.reset_index(inplace=True)
 
 # select accounts to process
