@@ -95,7 +95,7 @@ for fid, fincode in enumerate(major['finance_cd']):
                     for elem in replyjson['result']['list']:
                         for key, value in elem.items():
                             add[key].append(value)                                    
-                    archive['data'].append(add)
+                    archive['data'] = archive['data'].append(add)
 
 with open('temp_result.json', 'w') as file:
     json.dump(archive, file)
