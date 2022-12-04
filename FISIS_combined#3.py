@@ -55,8 +55,15 @@ focusstats.reset_index(inplace=True)
 
 # select accounts to process
 # finaccounts = accounts.loc[711:1326]
-finaccounts = accounts.loc[1285:1326]
+# finaccounts = accounts.loc[1285:1326]
+
+finaccounts = pd.DataFrame()
+screen = lambda x:finaccounts.append(accounts[accounts['list_nm'].str.contains(x)])
+picks = ['대출금', '대출채권', '차입', '이자비용', '대손', '부채비율']
+for pick in picks:
+    finaccounts = screen(pick)            
 finaccounts.reset_index(inplace=True)
+
 
 archive = {'id':[], 'name':[], 'data':[]}
 url = 'http://fisis.fss.or.kr/openapi/statisticsInfoSearch.json'
