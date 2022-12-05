@@ -458,10 +458,10 @@ class Kiwoom(QAxWidget):
         self.set_input_value('기준일자', date)
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10081', 'opt10081', 0, '0001')
-        print('stockcode in request_daily_chart : -> first reqeust : ', self.stockcode)
+        date_edited = date[:4]+'년'+date[4:6]+'월'+date[6:]+'일'
+        print(f'{stock} {date_edited}부터 일봉차트 요청')
 
         while self.remaining_data == True:
-            print('stockcode in request_daily_chart : -> continued reqeusts : ', self.stockcode)
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('기준일자', date)
@@ -482,6 +482,8 @@ class Kiwoom(QAxWidget):
         self.set_input_value('틱범위', mintime)
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10080', 'opt10080', 0, '0003')
+        print(f'{stock} {mintime}분차트 요청')
+
 
         while self.remaining_data == True:
             print('requesting_time_unit <- request_minute_chart continued request: ', self.requesting_time_unit)
@@ -498,7 +500,6 @@ class Kiwoom(QAxWidget):
         iter: 데이터 수신 반복회수 (1회 수신 900여개)
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
-        print('self.remaining_data for 1st request: ', self.remaining_data)
         stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode = stockcode      
         self.requesting_time_unit = str(ticktime)+'틱'
@@ -506,10 +507,10 @@ class Kiwoom(QAxWidget):
         self.set_input_value('틱범위', ticktime)
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10079', 'opt10079', 0, '0003')
-
+        # ptype = ['유상증자', '무상증자', '배당락', '액면분할', '액면병합', '기업합병', '감자', '권리락'][pricetype]
+        print(f'{stock} {ticktime}틱차트 요청')
 
         while self.remaining_data == True:
-            print('self.remaining_data for non 1st request: ', self.remaining_data)
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', ticktime)
@@ -545,7 +546,7 @@ class Kiwoom(QAxWidget):
         for stock in stocklist.split(','):
             stocks.append(stock.strip())
 
-        print('stocks in request_mass_data: ', stocks)
+        print(f'{stocklist} 1틱차트 실시간 정보 요청')
  
         codecnt = len(stocks)
         for idx, stock in enumerate(stocks):      
@@ -553,7 +554,7 @@ class Kiwoom(QAxWidget):
                 code_list += self.all_stocks['stockkeys'][stock]
             else:
                 code_list += ';'+self.all_stocks['stockkeys'][stock] #CommKwRqData() receives multiple stock tickers as one string separated with ;
-        print('\n\nRequesting the real time data of the following tickers: ', code_list)
+        # print('\n\nRequesting the real time data of the following tickers: ', code_list)
         self.comm_kw_rq_data(code_list, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0005')
             
     def request_real_data(self, codelist, fidlist, opttype='1', scrno='0100'):            
@@ -572,7 +573,9 @@ class Kiwoom(QAxWidget):
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode = stockcode
-        print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
+        order = ['신규매수', '신규매도', '매수취소', '매도취소', '매수정정', '매도정정'][ordertype]
+        # print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
+        print(f'{stock} {price}원 {qty}주 {order} 신청')
         self.set_order('testuser', '0006', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
  
                         
