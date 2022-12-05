@@ -139,6 +139,7 @@ class Kiwoom(QAxWidget):
             
             # The following statement makes db file names in _data_to_sql, which is different from df_name
             # df_name is same as tr_data keys, which is done in _df_generator
+            print('requesting_time_unit <- in _timesaver_df: ', self.requesting_time_unit)
             self._data_to_sql(table, filename+'.db', df)
             print(f'{table} is saved in {filename}.db')            
         self.tr_data = {}        
@@ -184,7 +185,7 @@ class Kiwoom(QAxWidget):
         '''
         realtype: 주식시세, 주식체결, 주문체결, 체결잔고, 잔고변경, 주문메세지, 주식일봉차트, 주식틱차트, 관심종목
         data: dataframe which contains data to save
-        '''
+        '''        
         # (stock name +) realtype (+ a time unit) = df_name = tr_data keys
         # 체결잔고, 잔고변경, 주문메세지 will each have one same filename with multiple table names for additional data to save
         # They also have df_name in the form of : realtype
@@ -369,7 +370,7 @@ class Kiwoom(QAxWidget):
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
-        self.requesting_time_unit = ''
+        # self.requesting_time_unit = ''
         self.stockcode = code
         df_name, df = self._df_generator('주식시세', add)
 
@@ -380,7 +381,7 @@ class Kiwoom(QAxWidget):
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
-        self.requesting_time_unit = ''
+        # self.requesting_time_unit = ''
         self.stockcode = code       
         df_name, df = self._df_generator('주식체결', add)
  
@@ -391,7 +392,7 @@ class Kiwoom(QAxWidget):
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
 
-        self.requesting_time_unit = ''
+        # self.requesting_time_unit = ''
         self.stockcode = code        
         df_name, df = self._df_generator('주문체결', add)   
     
@@ -405,10 +406,24 @@ class Kiwoom(QAxWidget):
         print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
         return self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
     
+    # _opt10079 ~ _opt10081 have an item for stock codes in output values in the guidebook, 
+    # but actually return blank instead of stock codes 
+    def _opt10079(self, rqname, trcode):
+        df_name = ''
+        df = pd.DataFrame()
+        data_cnt = self._get_repeat_cont(trcode, '주식틱차트')        
+        add = {}
+        for idx in range(data_cnt):
+            for key in self.fids_dict['opt10079']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
+            df_name, df = self._df_generator('주식틱차트', add)            
+        return df_name, df    
 
     def _opt10080(self, rqname, trcode):
+        print('request_time_unit in _opt10080: ', self.requesting_time_unit)
+        df_name = ''
+        df = pd.DataFrame()
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
-        # df_name = ''
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10080']:
@@ -417,6 +432,8 @@ class Kiwoom(QAxWidget):
         return df_name, df      
  
     def _opt10081(self, rqname, trcode):
+        df_name = ''
+        df = pd.DataFrame()
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
         add = {}
         for idx in range(data_cnt):
@@ -424,17 +441,12 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
             df_name, df = self._df_generator('주식일봉차트', add)
         return df_name, df
- 
-    def _opt10079(self, rqname, trcode):
-        data_cnt = self._get_repeat_cont(trcode, '주식틱차트')        
-        add = {}
-        for idx in range(data_cnt):
-            for key in self.fids_dict['opt10079']:
-                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-            df_name, df = self._df_generator('주식틱차트', add)
-        return df_name, df
-
+    
+    # _optkfid is actually for simultaneous multiple stock data requests, not 관심종목
+    # This actually returns stock codes in its output values
     def _optkwfid(self, trcode):
+        df_name = ''
+        df = pd.DataFrame()
         data_cnt = self._get_repeat_cont(trcode, '관심종목')
         add= {}
         for idx in range(data_cnt):
@@ -456,13 +468,15 @@ class Kiwoom(QAxWidget):
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode = stockcode  
-        self.requesting_time_unit = ''      
+        # self.requesting_time_unit = ''      
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('기준일자', date)
         self.set_input_value('수정주가구분', pricetype)
         self.comm_rq_data('OPT10081', 'opt10081', 0, '0001')
+        print('stockcode in request_daily_chart : -> first reqeust : ', self.stockcode)
 
         while self.remaining_data == True:
+            print('stockcode in request_daily_chart : -> continued reqeusts : ', self.stockcode)
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('기준일자', date)
@@ -485,6 +499,7 @@ class Kiwoom(QAxWidget):
         self.comm_rq_data('OPT10080', 'opt10080', 0, '0003')
 
         while self.remaining_data == True:
+            print('requesting_time_unit <- request_minute_chart continued request: ', self.requesting_time_unit)
             time.sleep(TR_REQ_TIME_INTERVAL)
             self.set_input_value('종목코드', stockcode)
             self.set_input_value('틱범위', mintime)
@@ -519,18 +534,28 @@ class Kiwoom(QAxWidget):
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
         stocks = [] 
-        #when stocklist is a long string with stock names separated with ,
-        #'삼성전자, 현대차, LG전자'
-        if type(stocklist) == str:
-            for stock in stocklist[0].split(','):
-                stocks.append(stock.strip())
+        
+        if type(stocklist) == list:
+            if type(stocklist[0]) == str and len(stocklist) == 1:
+                stocklist = stocklist[0]
+                
+            #when stocklist is a list filled with strings. stocklist=['삼성전자', '현대차']
+            elif type(stocklist[0]) == str and len(stocklist) > 1:
+                pass
+            
         #when one list filled with stock name strings, it will actually be a list covered with a tuple
         #request_mass_data(stocks[:100]) -> stocks[:100] is in the form of ['삼성전자', '현대차']
         #the stocklist argument gets that input in the form of (['삼성전자', '현대차'])
-        elif type(stocklist[0]) == list: 
-            stocks = stocklist[0]
-        else: #when stocklist is a list filled with strings. stocklist=['삼성전자', '현대차']
-            stocks = stocklist
+        elif type(stocklist) == tuple and type(stocklist[0]) == list and type(stocklist[0][0] == str) and len(stocklist[0]) > 1:
+            stocklist = stocklist[0][0]
+            
+        #when stocklist is a long string with stock names separated with ,
+        #'삼성전자, 현대차, LG전자'
+        elif type(stocklist) == str:
+            for stock in stocklist.split(','):
+                stocks.append(stock.strip())
+
+ 
         codecnt = len(stocks)
         for idx, stock in enumerate(stocks):      
             if idx == 0:
@@ -576,17 +601,26 @@ sellfast = lambda stock, price, qty: kiwoom.make_order(stock, price, qty, '03', 
 # buy('삼성전자', 61000, 1)
 # sell('삼성전자', 62000, 1)
 # buyfast('삼성전자', 61000, 1)
-sellfast('삼성전자', 62000, 1)
+# sellfast('삼성전자', 62000, 1)
 # kiwoom.request_tick_chart('삼성전자', 1)
 # tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
-# stocks = lambda x: [i.strip() for i in x.split(',')]
-# for stock in stocks('삼성전자, 현대차, 컬러레이'):
-#     tick(stock)
 # tick('컬러레이')
 # tick('삼성전자')
 # kiwoom.request_minute_chart('삼성전자', 30)
-# kiwoom.request_daily_chart('삼성전자', '20221125')
-# kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
+# min30 = lambda stock: kiwoom.request_minute_chart(stock, 30)
+# min30('삼성전자')
+# min10 = lambda stock: kiwoom.request_minute_chart(stock, 10)
+# min10('삼성전자')
+mass = lambda stocks: kiwoom.request_mass_data(stocks)
+mass('LG에너지솔루션, SK텔레콤, 현대차')
+
+# stocks = lambda x: [i.strip() for i in x.split(',')]
+# for stock in stocks('삼성전자, 현대차, 컬러레이'):
+#     tick(stock)
 # stocks = list(kiwoom.all_stocks['stockkeys'].keys())
 # kiwoom.request_mass_data(stocks[50:60])
+
+# kiwoom.request_daily_chart('삼성전자', '20221125')
+# kiwoom.request_mass_data('삼성전자, NAVER, 컬러레이, 현대차, 카카오, LG에너지솔루션')
+
 # print(kiwoom.all_stocks)
