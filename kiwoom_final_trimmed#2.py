@@ -37,7 +37,7 @@ class Kiwoom(QAxWidget):
         self.remaining_data = True
         self.fidlist = []
         self.tr_data = {}
-        self.stockcode_non_realtime = 0        
+        self.stockcode = 0        
         self.requesting_time_unit = ''
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
         self.fids_dict = {
@@ -83,14 +83,17 @@ class Kiwoom(QAxWidget):
                             '고가', '저가', '종가', '체결시간', '예상체결가', '예상체결량', '자본금', '액면가', '시가총액', '주식수', '호가시간',
                             '일자', '우선매도잔량', '우선매수잔량', '우선매도건수', '우선매수건수', '총매도잔량', '총매수잔량', '총매도건수', 
                             '총매수건수', '패리티', '기어링', '손익분기', '자본지지', 'ELW행사가', '전환비율', 'ELW만기일', '미결제약정', '미결제전일대비',
-                            '이론가', '내재변동성', '델타', '감마', '쎄타', '베가', '로']
+                            '이론가', '내재변동성', '델타', '감마', '쎄타', '베가', '로'],
+            # Do not change the following 주문메세지 unless it's absolutely necessary.
+            # In case you change them, change the 'all_msg' list in '_receive_msg' to match the change in the following
+            '주문메세지' : ['주문시간', '종목명', '거래코드', '메세지', '투자구분', '거래종류' ]
         }
         self.orders_dict = {
             '호가구분' : {'00':'지정가', '03':'시장가', '05':'조건부지정가', '06':'최유리지정가', '07':'최우선지정가', '10':'지정가IOC', '13':'시장가IOC', 
                         '16':'최유리IOC', '20':'지정가FOK', '23':'시장가FOK', '26':'최유리FOK', '61':'장전시간외종가', '62':'시간외단일가매매', '81':'장후시간외종가'},
             '주문리턴' : {0:'주문성공', -308:'1초5회이상주문에러'}
-        }
-       
+        }          
+      
     def _login(self):
         self.dynamicCall('CommConnect')
         self._event_loop_exec('login_loop')
@@ -128,10 +131,16 @@ class Kiwoom(QAxWidget):
         for df_name, df in self.tr_data.items():
             print('df_name, df -> in _timersave_df: \n', df_name, df)
             names = df_name.split('_')
-            table = names[0] if len(names) == 4 or 1 else names[0]+' '+names[1]
-            df = pd.DataFrame(df) if type(df) == dict else df
-            self._data_to_sql(table, df_name+'.db', df)
-            print(f'{table} is saved in {df_name}.db')            
+            table = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지'] else names[0]+'_'+names[2]
+            filename = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지'] else names[1]
+                        
+            # table = names[0] if len(names) == 4 or 1 else names[0]+' '+names[1]            
+            # df = pd.DataFrame(df) if type(df) == dict else df           
+            
+            # The following statement makes db file names in _data_to_sql, which is different from df_name
+            # df_name is same as tr_data keys, which is done in _df_generator
+            self._data_to_sql(table, filename+'.db', df)
+            print(f'{table} is saved in {filename}.db')            
         self.tr_data = {}        
         minute_interval = int(self.savetimer.interval()/60_000)
         print(f'\nAutosaving for every {minute_interval} minute completed.')
@@ -142,25 +151,58 @@ class Kiwoom(QAxWidget):
     
     def _data_to_sql(self, tablename, filename, df):
         with sqlite3.connect(filename) as file:
+            # tablenames, columnnames = self._get_db_info(file, 0) # 0 is passed because file is a db handle
+            # columnvalues = df[df.columns[-1]].values
+            # if tablename in ['체결잔고', '잔고변경'] and not df.columns in columnname:
+            #     file.cursor().execute(f'ALTER TABLE {tablename} ADD COLUMN {df.columns[-1]} varchar(255);')                              
+            #     file.cursor().execute(f'INSERT INTO {tablename} ({df.columns[-1]}) VALUES ({columnvalues});')
+            # else:
+            #     df.to_sql(tablename, file, if_exists='append')
+            df.to_sql(tablename, file, if_exists='append')
+                
+    #type == 1: db is a filename, type == 0: db is a db handle or db sqlite3 connect pointer                 
+    def _get_db_info(self, db, type):
+        '''
+        db: a file name or a sqlite3 connec pointer. 
+        type: 
+        0: db is a sqlite3 connect pointer or handle 1: db is a filename         
+        returns 
+        tablenames: a tuple
+        columnnames: a pandas.Series'''
+        if db: #db is a filename                        
+            with sqlite3.connect(db) as file:
+                query = '''SELECT name FROM sqlite_master WHERE type='table';'''
+                tablenames = file.cursor().execute(query).fetchall()[0]
+                columnnames = pd.read_sql(f'PRAGMA TABLE_INFO({tablenames[-1]})', file).name
+        else: #db is a db handle or db sqlite3 connect pointer
             query = '''SELECT name FROM sqlite_master WHERE type='table';'''
-            tablename = file.cursor().execute(query).fetchall()[0][0]
-            columnname = pd.read_sql(f'PRAGMA TABLE_INFO({tablename})', file).columns
-            columnvalues = df[df.columns[-1]].values
-            if tablename in ['체결잔고', '잔고변경'] and not df.columns in columnname:
-                file.cursor().execute(f'ALTER TABLE {tablename} ADD COLUMN {df.columns[-1]} varchar(255);')                              
-                file.cursor().execute(f'INSERT INTO {tablename} ({df.columns[-1]}) VALUES ({columnvalues});')
-            else:
-                df.to_sql(tablename, file, if_exists='append')
+            tablenames = db.cursor().execute(query).fetchall()[0]
+            columnnames = pd.read_sql(f'PRAGMA TABLE_INFO({tablenames[-1]})', db).name            
+        return tablenames, columnnames      
             
-    def _df_generator(self, realtype, stockcode, data):   
-        if stockcode == '':
+    def _df_generator(self, realtype, data):   
+        '''
+        realtype: 주식시세, 주식체결, 주문체결, 체결잔고, 잔고변경, 주문메세지, 주식일봉차트, 주식틱차트, 관심종목
+        data: dataframe which contains data to save
+        '''
+        # (stock name +) realtype (+ a time unit) = df_name = tr_data keys
+        # 체결잔고, 잔고변경, 주문메세지 will each have one same filename with multiple table names for additional data to save
+        # They also have df_name in the form of : realtype
+        if realtype in ['체결잔고', '잔고변경', '주문메세지']:
             # print('\n\nrealtype, stockcode, data in df_generator: \n', realtype, stockcode, data)
-            df_name = realtype+'_'+datetime.today().strftime('%Y_%m_%d')
+            # df_name = realtype+'_'+datetime.today().strftime('%Y_%m_%d')
+            df_name = realtype
+
+        # 주식시세, 주식체결, 주문체결, 주식일봉차트, 주식틱차트, 관심종목 will have df_name consising of
+        # stock_realtype_timeunit : i.e. 삼성전자_주식일봉차트_30분봉
         else:
             # print('\n\nrealtype, stockcode, stock, data in df_generator: \n', realtype, stockcode, self.all_stocks['tickerkeys'][stockcode], data)
-            df_name = self.all_stocks['tickerkeys'][stockcode]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
+            # df_name = self.all_stocks['tickerkeys'][stockcode]+'_'+realtype+self.requesting_time_unit+'_'+datetime.today().strftime('%Y_%m_%d')
+            df_name = self.all_stocks['tickerkeys'][self.stockcode]+'_'+realtype+'_'+self.requesting_time_unit
             
         if df_name in self.tr_data.keys():
+            # df_name is same as tr_datakeys, which is done in _df_generator
+            # db file names are differently named in _data_to_sql, which is done in _timersave_df
             self.tr_data[df_name] = self.tr_data[df_name].append(pd.DataFrame(data), ignore_index=True)
             return df_name, self.tr_data[df_name]
         else:
@@ -266,11 +308,13 @@ class Kiwoom(QAxWidget):
     def _receive_msg(self, scrno, rqname, trcode, msg):
         print('\n\nscrno, rqname, trcode, msg: ->in _receive_msg\n', scrno, rqname, trcode, msg)
         add = {}
-        stock = self.all_stocks['tickerkeys'][self.stockcode_non_realtime]
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
         msg_trimmed = msg.split()
         msg_trimmed[0] = msg_trimmed[0].strip('[]')
-        add[datetime.now().strftime('AT_%H_%M_%S')] = [stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
-        self.tr_data['주문메세지'] = add  
+        all_msg = [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
+        for idx, key in enumerate(self.fids_dict['주문메세지']):
+            add[key] = [all_msg[idx]]
+        df_name, df = self._df_generator('주문메세지', add)
 
     def _receive_chejan_data(self, gubun, itemcnt, fidlist): 
         '''
@@ -303,7 +347,7 @@ class Kiwoom(QAxWidget):
             add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
         #the second argument, stockcode, is assigned '', 
         #which makes _df_generator df_name without stock name in it.
-        df_name, df = self._df_generator('체결잔고', '', add) 
+        df_name, df = self._df_generator('체결잔고', add) 
 
     def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
         print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
@@ -316,9 +360,7 @@ class Kiwoom(QAxWidget):
         add = {}
         for fid in fidlist_checked:
             add[self.fids_dict['신용잔고'][int(fid)]] = [self._get_chejan_data(fid)]
-        #the second argument, stockcode, is assigned '', 
-        #which makes _df_generator df_name without stock name in it.
-        df_name, df = self._df_generator('잔고변경', '', add) 
+        df_name, df = self._df_generator('잔고변경', add) 
     
     def _realtype_stock_status(self, code):
         add= {}
@@ -328,7 +370,8 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
         self.requesting_time_unit = ''
-        df_name, df = self._df_generator('주식시세', code, add)
+        self.stockcode = code
+        df_name, df = self._df_generator('주식시세', add)
 
     def _realtype_stock_made(self, code): 
         add= {}
@@ -338,7 +381,8 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
         self.requesting_time_unit = ''
-        df_name, df = self._df_generator('주식체결', code, add)
+        self.stockcode = code       
+        df_name, df = self._df_generator('주식체결', add)
  
     def _realtype_order_made(self, code):
         add= {}
@@ -348,7 +392,8 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
 
         self.requesting_time_unit = ''
-        df_name, df = self._df_generator('주문체결', code, add)   
+        self.stockcode = code        
+        df_name, df = self._df_generator('주문체결', add)   
     
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
@@ -368,7 +413,7 @@ class Kiwoom(QAxWidget):
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10080']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
-            df_name, df = self._df_generator('주식분봉차트', self.stockcode_non_realtime, add)
+            df_name, df = self._df_generator('주식분봉차트', add)
         return df_name, df      
  
     def _opt10081(self, rqname, trcode):
@@ -377,7 +422,7 @@ class Kiwoom(QAxWidget):
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10081']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-            df_name, df = self._df_generator('주식일봉차트', self.stockcode_non_realtime, add)
+            df_name, df = self._df_generator('주식일봉차트', add)
         return df_name, df
  
     def _opt10079(self, rqname, trcode):
@@ -386,7 +431,7 @@ class Kiwoom(QAxWidget):
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10079']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-            df_name, df = self._df_generator('주식틱차트', self.stockcode_non_realtime, add)
+            df_name, df = self._df_generator('주식틱차트', add)
         return df_name, df
 
     def _optkwfid(self, trcode):
@@ -395,7 +440,8 @@ class Kiwoom(QAxWidget):
         for idx in range(data_cnt):
             for key in self.fids_dict['OPTKWFID']:
                 add[key] = [self._get_comm_data(trcode, 'OPTKWFID', idx, key)]
-            df_name, df = self._df_generator('관심종목', add['종목코드'][0], add)
+            self.stockcode = add['종목코드'][0]
+            df_name, df = self._df_generator('관심종목', add)
         return df_name, df          
 
     def _get_comm_data(self, trcode, rqname, idx, itemname):
@@ -409,7 +455,7 @@ class Kiwoom(QAxWidget):
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
-        self.stockcode_non_realtime = stockcode  
+        self.stockcode = stockcode  
         self.requesting_time_unit = ''      
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('기준일자', date)
@@ -431,7 +477,7 @@ class Kiwoom(QAxWidget):
         pricetype: 1.유상증자 2.무상증자 4.배당락 8.액면분할 16.액면병합 32.기업합병 64.감자 256.권리락
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
-        self.stockcode_non_realtime = stockcode      
+        self.stockcode = stockcode      
         self.requesting_time_unit = str(mintime)+'분'
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('틱범위', mintime)
@@ -454,7 +500,7 @@ class Kiwoom(QAxWidget):
         '''
         print('self.remaining_data for 1st request: ', self.remaining_data)
         stockcode = self.all_stocks['stockkeys'][stock]
-        self.stockcode_non_realtime = stockcode      
+        self.stockcode = stockcode      
         self.requesting_time_unit = str(ticktime)+'틱'
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('틱범위', ticktime)
@@ -509,7 +555,7 @@ class Kiwoom(QAxWidget):
         orderno: 원주문번호. 신규주문에는 공백 입력, 정정/취소시 입력합니다.        
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
-        self.stockcode_non_realtime = stockcode
+        self.stockcode = stockcode
         print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
         self.set_order('testuser', '0006', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
  
