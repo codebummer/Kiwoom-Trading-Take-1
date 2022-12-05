@@ -131,8 +131,8 @@ class Kiwoom(QAxWidget):
         for df_name, df in self.tr_data.items():
             print('df_name, df -> in _timersave_df: \n', df_name, df)
             names = df_name.split('_')
-            table = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지'] else names[0]+'_'+names[2]
-            filename = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지'] else names[1]
+            table = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지', '관심종목'] else names[0]+'_'+names[2]
+            filename = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지', '관심종목'] else names[1]
                         
             # table = names[0] if len(names) == 4 or 1 else names[0]+' '+names[1]            
             # df = pd.DataFrame(df) if type(df) == dict else df           
@@ -189,7 +189,7 @@ class Kiwoom(QAxWidget):
         # (stock name +) realtype (+ a time unit) = df_name = tr_data keys
         # 체결잔고, 잔고변경, 주문메세지 will each have one same filename with multiple table names for additional data to save
         # They also have df_name in the form of : realtype
-        if realtype in ['체결잔고', '잔고변경', '주문메세지']:
+        if realtype in ['체결잔고', '잔고변경', '주문메세지', '관심종목']:
             # print('\n\nrealtype, stockcode, data in df_generator: \n', realtype, stockcode, data)
             # df_name = realtype+'_'+datetime.today().strftime('%Y_%m_%d')
             df_name = realtype
@@ -279,14 +279,23 @@ class Kiwoom(QAxWidget):
         print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: ->in _receive_tr_data\n',\
                 scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)        
 
+        # if rqname == 'OPT10081':
+        #     df_name, df = self._opt10081(rqname, trcode)
+        # elif rqname == 'OPT10079':
+        #     df_name, df = self._opt10079(rqname, trcode)
+        # elif rqname == 'OPT10080':
+        #     df_name, df = self._opt10080(rqname, trcode)
+        # elif rqname == 'OPTKWFID':
+        #     df_name, df = self._optkwfid(trcode)
+
         if rqname == 'OPT10081':
-            df_name, df = self._opt10081(rqname, trcode)
+            self._opt10081(rqname, trcode)
         elif rqname == 'OPT10079':
-            df_name, df = self._opt10079(rqname, trcode)
+            self._opt10079(rqname, trcode)
         elif rqname == 'OPT10080':
-            df_name, df = self._opt10080(rqname, trcode)
+            self._opt10080(rqname, trcode)
         elif rqname == 'OPTKWFID':
-            df_name, df = self._optkwfid(trcode)
+            self._optkwfid(trcode)
         
         try:
             self._event_loop_exit('tr')            
@@ -409,44 +418,44 @@ class Kiwoom(QAxWidget):
     # _opt10079 ~ _opt10081 have an item for stock codes in output values in the guidebook, 
     # but actually return blank instead of stock codes 
     def _opt10079(self, rqname, trcode):
-        df_name = ''
-        df = pd.DataFrame()
+        # df_name = ''
+        # df = pd.DataFrame()
         data_cnt = self._get_repeat_cont(trcode, '주식틱차트')        
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10079']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
             df_name, df = self._df_generator('주식틱차트', add)            
-        return df_name, df    
+        # return df_name, df    
 
     def _opt10080(self, rqname, trcode):
         print('request_time_unit in _opt10080: ', self.requesting_time_unit)
-        df_name = ''
-        df = pd.DataFrame()
+        # df_name = ''
+        # df = pd.DataFrame()
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10080']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             df_name, df = self._df_generator('주식분봉차트', add)
-        return df_name, df      
+        # return df_name, df      
  
     def _opt10081(self, rqname, trcode):
-        df_name = ''
-        df = pd.DataFrame()
+        # df_name = ''
+        # df = pd.DataFrame()
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10081']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
             df_name, df = self._df_generator('주식일봉차트', add)
-        return df_name, df
+        # return df_name, df
     
     # _optkfid is actually for simultaneous multiple stock data requests, not 관심종목
     # This actually returns stock codes in its output values
     def _optkwfid(self, trcode):
-        df_name = ''
-        df = pd.DataFrame()
+        # df_name = ''
+        # df = pd.DataFrame()
         data_cnt = self._get_repeat_cont(trcode, '관심종목')
         add= {}
         for idx in range(data_cnt):
@@ -454,7 +463,7 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, 'OPTKWFID', idx, key)]
             self.stockcode = add['종목코드'][0]
             df_name, df = self._df_generator('관심종목', add)
-        return df_name, df          
+        # return df_name, df          
 
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
@@ -534,6 +543,7 @@ class Kiwoom(QAxWidget):
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
         stocks = [] 
+        self.requesting_time_unit = '1틱'
         
         if type(stocklist) == list:
             if type(stocklist[0]) == str and len(stocklist) == 1:
@@ -548,13 +558,18 @@ class Kiwoom(QAxWidget):
         #the stocklist argument gets that input in the form of (['삼성전자', '현대차'])
         elif type(stocklist) == tuple and type(stocklist[0]) == list and type(stocklist[0][0] == str) and len(stocklist[0]) > 1:
             stocklist = stocklist[0][0]
-            
+        
+        elif type(stocklist) == tuple and type(stocklist[0]) == str and len(stocklist) == 1:
+            stocklist = stocklist[0]
         #when stocklist is a long string with stock names separated with ,
         #'삼성전자, 현대차, LG전자'
         elif type(stocklist) == str:
-            for stock in stocklist.split(','):
-                stocks.append(stock.strip())
+            pass
 
+        for stock in stocklist.split(','):
+            stocks.append(stock.strip())
+
+        print('stocks in request_mass_data: ', stocks)
  
         codecnt = len(stocks)
         for idx, stock in enumerate(stocks):      
