@@ -129,14 +129,13 @@ class Kiwoom(QAxWidget):
     def _timersave_df(self):
         print('\nAutosaving in progress...')
         for df_name, df in self.tr_data.items():
-            print('df_name, df -> in _timersave_df: \n', df_name, df)
+            # print('df_name, df -> in _timersave_df: \n', df_name, df)
             names = df_name.split('_')
             table = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지', '관심종목'] else names[0]+'_'+names[2]
             filename = names[0] if names[0] in ['체결잔고', '잔고변경', '주문메세지', '관심종목'] else names[1]
                                     
             # The following statement makes db file names in _data_to_sql, which is different from df_name
             # df_name is same as tr_data keys, which is done in _df_generator
-            print('requesting_time_unit <- in _timesaver_df: ', self.requesting_time_unit)
             self._data_to_sql(table, filename+'.db', df)
             print(f'{table} is saved in {filename}.db')            
         self.tr_data = {}        
@@ -149,7 +148,6 @@ class Kiwoom(QAxWidget):
     
     def _data_to_sql(self, tablename, filename, df):
         with sqlite3.connect(filename) as file:
-
             df.to_sql(tablename, file, if_exists='append')
                 
     #type == 1: db is a filename, type == 0: db is a db handle or db sqlite3 connect pointer                 
@@ -200,7 +198,7 @@ class Kiwoom(QAxWidget):
     def account_info(self):
         #GetLoginInfo() takes its argument as a list form. Put all the input values in []
         self.account_num = self.dynamicCall('GetLoginInfo(QString)', ['ACCNO']).strip(';')
-        print(self.account_num)
+        # print(self.account_num)
 
     def stock_ticker(self):
         #GetCodeListByMarket() takes its argument as a list form. Put all the input values in []
@@ -263,8 +261,8 @@ class Kiwoom(QAxWidget):
         elif prenext == 0:
             self.remaining_data = False
             
-        print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: ->in _receive_tr_data\n',\
-                scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)        
+        # print('scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4: ->in _receive_tr_data\n',\
+        #         scrno, rqname, trcode, recordname, prenext, unused1, unused2, unused3, unused4)        
 
         if rqname == 'OPT10081':
             self._opt10081(rqname, trcode)
@@ -294,12 +292,13 @@ class Kiwoom(QAxWidget):
             pass
     
     def _receive_msg(self, scrno, rqname, trcode, msg):
-        print('\n\nscrno, rqname, trcode, msg: ->in _receive_msg\n', scrno, rqname, trcode, msg)
+        # print('\n\nscrno, rqname, trcode, msg: ->in _receive_msg\n', scrno, rqname, trcode, msg)
         add = {}
         stock = self.all_stocks['tickerkeys'][self.stockcode]
         msg_trimmed = msg.split()
         msg_trimmed[0] = msg_trimmed[0].strip('[]')
         all_msg = [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
+        print(all_msg[0], all_msg[1], all_msg[4], all_msg[5])
         for idx, key in enumerate(self.fids_dict['주문메세지']):
             add[key] = [all_msg[idx]]
         df_name, df = self._df_generator('주문메세지', add)
@@ -311,7 +310,7 @@ class Kiwoom(QAxWidget):
         fidlist example : 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910
         itemcnt for the above fidlist exmaple will be its number, 18    
         '''   
-        print('gubun, type(gubun): -> in _receive_chejan_data\n', gubun, type(gubun))
+        # print('gubun, type(gubun): -> in _receive_chejan_data\n', gubun, type(gubun))
         if gubun == '0': #order placed and made 
             self._real_chejan_placed_made(itemcnt, fidlist)
         elif gubun == '1':
@@ -323,7 +322,8 @@ class Kiwoom(QAxWidget):
         #     pass
 
     def _real_chejan_placed_made(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
-        print('\nitemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
+        # print('\nitemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
+        print('order placed and made')
         fidlist = fidlist.split(';')
         fidlist_checked = []
         fid_indict = [str(key) for key in self.fids_dict['주문체결'].keys()]
@@ -335,10 +335,12 @@ class Kiwoom(QAxWidget):
             add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
         #the second argument, stockcode, is assigned '', 
         #which makes _df_generator df_name without stock name in it.
-        df_name, df = self._df_generator('체결잔고', add) 
+        df_name, df = self._df_generator('체결잔고', add)
+        print(df)
 
     def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
-        print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
+        # print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
+        print('change in balance happened')
         fidlist = fidlist.split(';')
         fidlist_checked = []
         fid_indict = [str(key) for key in self.fids_dict['신용잔고'].keys()]
@@ -349,6 +351,7 @@ class Kiwoom(QAxWidget):
         for fid in fidlist_checked:
             add[self.fids_dict['신용잔고'][int(fid)]] = [self._get_chejan_data(fid)]
         df_name, df = self._df_generator('잔고변경', add) 
+        print(df)
     
     def _realtype_stock_status(self, code):
         add= {}
@@ -359,6 +362,7 @@ class Kiwoom(QAxWidget):
         
         self.stockcode = code
         df_name, df = self._df_generator('주식시세', add)
+        print(df)
 
     def _realtype_stock_made(self, code): 
         add= {}
@@ -369,6 +373,7 @@ class Kiwoom(QAxWidget):
         
         self.stockcode = code       
         df_name, df = self._df_generator('주식체결', add)
+        print(df)
  
     def _realtype_order_made(self, code):
         add= {}
@@ -379,6 +384,7 @@ class Kiwoom(QAxWidget):
 
         self.stockcode = code        
         df_name, df = self._df_generator('주문체결', add)   
+        print(df)
     
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
@@ -398,16 +404,19 @@ class Kiwoom(QAxWidget):
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10079']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-            df_name, df = self._df_generator('주식틱차트', add)            
+            df_name, df = self._df_generator('주식틱차트', add)   
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        print(f'{stock} 틱차트 정보 {data_cnt}건 수신')         
 
     def _opt10080(self, rqname, trcode):
-        print('request_time_unit in _opt10080: ', self.requesting_time_unit)  
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10080']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             df_name, df = self._df_generator('주식분봉차트', add)
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        print(f'{stock} 분봉차트 정보 {data_cnt}건 수신')    
  
     def _opt10081(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
@@ -416,6 +425,8 @@ class Kiwoom(QAxWidget):
             for key in self.fids_dict['opt10081']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
             df_name, df = self._df_generator('주식일봉차트', add)
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        print(f'{stock} 일봉차트 정보 {data_cnt}건 수신')  
     
     # _optkfid is actually for simultaneous multiple stock data requests, not 관심종목
     # This actually returns stock codes in its output values
@@ -427,6 +438,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, 'OPTKWFID', idx, key)]
             self.stockcode = add['종목코드'][0]
             df_name, df = self._df_generator('관심종목', add)
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        print(f'{stock} 관심종목 정보 {data_cnt}건 수신')  
 
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
