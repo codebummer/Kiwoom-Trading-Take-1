@@ -440,6 +440,7 @@ class Kiwoom(QAxWidget):
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode = stockcode  
+        self.requesting_time_unit = '일봉'
         self.set_input_value('종목코드', stockcode)
         self.set_input_value('기준일자', date)
         self.set_input_value('수정주가구분', pricetype)
@@ -589,5 +590,5 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # tick('삼성전자')
 # min30('삼성전자')
 # min10('삼성전자')
-daily('삼성전자')
+daily('현대차')
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
