@@ -393,7 +393,7 @@ class Kiwoom(QAxWidget):
         return self.dynamicCall('GetChejanData(int)', fid)
 
     def _get_repeat_cont(self, trcode, recordname):   
-        print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
+        # print('\nGetRepeatCnt: ', self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname))    
         return self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, recordname)
     
     # _opt10079 ~ _opt10081 have an item for stock codes in output values in the guidebook, 
@@ -606,5 +606,5 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # tick('삼성전자')
 # min30('삼성전자')
 # min10('삼성전자')
-daily('현대차')
+daily('컬러레이')
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
