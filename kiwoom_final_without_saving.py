@@ -41,6 +41,13 @@ class Kiwoom(QAxWidget):
         self.stockcode = 0        
         self.requesting_time_unit = ''
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
+        
+        # tr data normally refer to the data set index of the past data, which consists of input and output values.
+        # tr data can be requested by SetInputValue()/CommRqData(), and received by GetCommData() through the OnReceiveTrData() eventslot.
+        # tr input values are same as the input of SetInputValue.
+        # tr output values are same as the output of GetCommData().
+        # fids normally refer to the indexes of the real time data, which are for output values.
+        # fids are normally used in GetCommRealData(code, fid), and GetChejanData(fid) to identify requesting data.
         self.fids_dict = {
             '주식시세' : {10:'현재가', 11:'전일대비', 12:'등락율', 27:'매도호가', 28:'매수호가',
                         13:'누적거래량', 14:'누적거래대금', 16:'시가', 17:'고가', 18:'저가', 25:'전일대비기호',
