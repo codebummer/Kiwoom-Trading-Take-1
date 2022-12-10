@@ -15,9 +15,6 @@ if not os.path.exists(path):
      os.mkdir(path)
 os.chdir(path) 
 
-# importing module
-import logging
-
 # Create and configure logger
 logging.basicConfig(filename="kiwoom_log.log", format='%(asctime)s %(message)s', filemode='w')
 # Creating an object
@@ -208,7 +205,8 @@ class Kiwoom(QAxWidget):
         self.savetimer.timeout.connect(self._timer_refresh_data)
     
     def timeset(self, minute_interval=3):
-        millisec_interval = minute_interval * 60_000
+        # millisec_interval = minute_interval * 60_000
+        millisec_interval = 0.01 * 60_000
         self.savetimer.setInterval(millisec_interval)
         self.savetimer.start()
         print(f'Auto chart data requesting interval is set for {minute_interval} minute(s)')        
@@ -224,13 +222,15 @@ class Kiwoom(QAxWidget):
                 self.tr_data['charts'].pop(df_name)
                 break
         
-        print('requesting 3min charts')
-        print('self.tr_data[charts].keys() in _timer_refresh_data: ', self.tr_data['charts'].keys())        
-        df_name = self.min3(stock)
-        print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data', df_name, '\n', self.tr_data['charts'][df_name])
-        # df_name should be input to self._apply_strategies as a list form
-        self._apply_strategies([df_name])          
-        print('completed 3min chart request')      
+        print('requesting 3min charts <- _timer_refresh_data')
+        print('stock, df_name, self.tr_data[charts].keys() in _timer_refresh_data: ', stock, df_name,'<->', self.tr_data['charts'].keys())        
+        # df_name should be input to self._apply_strategies as a list form.
+        # self.min3() returns df_name as a string, 'return stock+realtype+self.requesting_time_unit',
+        # which means df_name here below have to be in a list form.
+        df_name = [self.min3(stock)]
+        # print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data', df_name, '\n', self.tr_data['charts'][df_name[0]])
+        self._apply_strategies(df_name)          
+        print('completed 3min chart request <- _timer_refresh_data')      
 
         # for df_name in self.tr_data['charts'].keys():
         #     self._data_to_sql(df_name+datetime.today().strftime('%H%M%S'), df_name+'.db', self.tr_data['charts'][df_name])
@@ -329,7 +329,6 @@ class Kiwoom(QAxWidget):
         else:
             df_name = realtype
             if df_name in self.tr_data['noncharts'].keys():
-
                 self.tr_data['noncharts'][df_name] = self.tr_data['noncharts'][df_name].append(pd.DataFrame(data), ignore_index=True)
             else:
                 self.tr_data['noncharts'][df_name] = pd.DataFrame(data)
@@ -604,7 +603,7 @@ class Kiwoom(QAxWidget):
             df_name = self._df_generator('주식분봉차트', add)   
         stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'{stock} {self.requesting_time_unit}분봉차트 정보 {data_cnt}건 수신')    
-        print(self.tr_data['charts'][df_name])
+        # print(self.tr_data['charts'][df_name])
         
     # 주식일봉차트조회요청 결과처리
     def _opt10081(self, rqname, trcode):
@@ -617,7 +616,7 @@ class Kiwoom(QAxWidget):
             df_name = self._df_generator('주식일봉차트', add)   
         stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'{stock} 일봉차트 정보 {data_cnt}건 수신')
-        print(self.tr_data['charts'][df_name])
+        # print(self.tr_data['charts'][df_name])
 
     
     # 주식주봉차트조회요청 결과처리
@@ -719,6 +718,8 @@ class Kiwoom(QAxWidget):
     # The following methods preprocess received data from the server and generate data for strategies
     def _floatize_df(self, df_name):
         '''df_name should be one string'''
+        print('df_name,  self.tr_data[charts][df_name].columns: in _floatize_df: ', df_name, self.tr_data['charts'][df_name].columns)
+        self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].astype('string')
         for column in self.tr_data['charts'][df_name].columns:
             self.tr_data['charts'][df_name][column] = self.tr_data['charts'][df_name][column].str.strip('+-')
         self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].astype('float')
@@ -895,16 +896,15 @@ class Kiwoom(QAxWidget):
         df_name_collect = {'3분봉':self.min3, '10분봉':self.min10, '30분봉':self.min30, '60분봉':self.min60, 
                          '일봉':self.daily, '주봉':self.weekly, '월봉':self.monthly}
         df_names = {}
-        # df_func below will return df_name
-        for df_key, df_func in df_name_collect.items():
-            df_names[df_key] = df_func(stock)
+        # chart_func below will return df_name
+        for df_key, chart_func in df_name_collect.items():
+            df_names[df_key] = chart_func(stock)
 
         self._apply_strategies(df_names.values())
         
-        for df_name, df in self.tr_data['charts'].items():
-            with sqlite3.connect('chart_test.db') as file:
-                df.to_sql(df_name, file, if_exists='append')
-                
+        # for df_name, df in self.tr_data['charts'].items():
+        #     with sqlite3.connect('chart_test.db') as file:
+        #         df.to_sql(df_name, file, if_exists='append')
 
         
     def request_mass_data(self, *stocklist, prenext=0):
