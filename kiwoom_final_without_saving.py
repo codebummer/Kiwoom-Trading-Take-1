@@ -3,7 +3,7 @@ from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
 import sqlite3
 import pandas as pd
-import time
+import time, asyncio
 import sys, os, json, logging
 from datetime import datetime
 # import matplotlib.pyplot as plt
@@ -206,7 +206,8 @@ class Kiwoom(QAxWidget):
     
     def timeset(self, minute_interval=3):
         # millisec_interval = minute_interval * 60_000
-        millisec_interval = 0.01 * 60_000
+        # millisec_interval = 0.01 * 60_000
+        millisec_interval = 1 * 60_000
         self.savetimer.setInterval(millisec_interval)
         self.savetimer.start()
         print(f'Auto chart data requesting interval is set for {minute_interval} minute(s)')        
@@ -218,40 +219,40 @@ class Kiwoom(QAxWidget):
 
         for df_name in self.tr_data['charts'].keys():
             if '3분' in df_name and stock in df_name:
-                print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data ', df_name, '\n', self.tr_data['charts'][df_name])
+                # print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data ', df_name, '\n', self.tr_data['charts'][df_name])
                 self.tr_data['charts'].pop(df_name)
                 break
         
-        print('requesting 3min charts <- _timer_refresh_data')
-        print('stock, df_name, self.tr_data[charts].keys() in _timer_refresh_data: ', stock, df_name,'<->', self.tr_data['charts'].keys())        
+        # print('requesting 3min charts <- _timer_refresh_data')
+        # print('stock, df_name, self.tr_data[charts].keys() in _timer_refresh_data: ', stock, df_name,'<->', self.tr_data['charts'].keys())        
+        
         # df_name should be input to self._apply_strategies as a list form.
         # self.min3() returns df_name as a string, 'return stock+realtype+self.requesting_time_unit',
         # which means df_name here below have to be in a list form.
-        df_name = [self.min3(stock)]
-        # print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data', df_name, '\n', self.tr_data['charts'][df_name[0]])
-        self._apply_strategies(df_name)          
-        print('completed 3min chart request <- _timer_refresh_data')      
-
-        # for df_name in self.tr_data['charts'].keys():
-        #     self._data_to_sql(df_name+datetime.today().strftime('%H%M%S'), df_name+'.db', self.tr_data['charts'][df_name])
-
+        # However, this is done by the last line of this method.
+        # self._apply_strategies(df_name.values())       
+        df_name = {}
+        df_name['3분봉'] = self.min3(stock)
  
         if (self.timer_count*3 % 30) == 0:
             for df_name in self.tr_data['charts'].keys():
                 if '30분' in df_name and stock in df_name:
                     self.tr_data['charts'].pop(df_name)
                     break
-            df_name = [self.min30(stock)]
-            self._apply_strategies(df_name)
+            df_name['30분봉'] = self.min30(stock)
 
         if (self.timer_count*3 % 60) == 0:
             for df_name in self.tr_data['charts'].keys():
                 if '60분' in df_name and stock in df_name:
                     self.tr_data['charts'].pop(df_name)
                     break
-            df_name = [self.min60(stock)]
-            self._apply_strategies(df_name)
+            df_name['60분봉'] = self.min60(stock)
+            
             self._timersave_df
+        # multiple timers can be activated simulanteously, 
+        # which is why _apply_strategies is at the bottom line of this method
+        # to reflect all the possible changes at once.
+        self._apply_strategies(df_name.values())
    
 
     def _timersave_df(self):
@@ -393,8 +394,7 @@ class Kiwoom(QAxWidget):
         '''
         rqname : OPT10080, OPT10081... useder defined distinguishers
         trcode : opt10080, opt10081... API given distinguishers
-        '''
-        
+        '''        
         # if prenext == 2:
         #     self.remaining_data = True
         # elif prenext == 0:
@@ -422,8 +422,7 @@ class Kiwoom(QAxWidget):
         elif rqname == 'OPTKWFID':
             self._optkwfid(rqname, trcode)
 
-
-        
+       
         # 계좌평가잔고내역요청
         elif rqname == 'OPW00018':
             self._opw00018(rqname, trcode)
@@ -442,7 +441,6 @@ class Kiwoom(QAxWidget):
         # 미체결요청
         elif rqname == 'OPT10075':
             self._opt10075(rqname, trcode)
-
         
 
         '''
@@ -712,13 +710,12 @@ class Kiwoom(QAxWidget):
             for key in self.fids_dict['opw10075']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             self._df_generator('미체결', add)
-        print(f'미체결 수신\n', self.tr_data['noncharts']['미체결'])  
-    
+        print(f'미체결 수신\n', self.tr_data['noncharts']['미체결'])      
     
     # The following methods preprocess received data from the server and generate data for strategies
     def _floatize_df(self, df_name):
         '''df_name should be one string'''
-        print('df_name,  self.tr_data[charts][df_name].columns: in _floatize_df: ', df_name, self.tr_data['charts'][df_name].columns)
+        # print('df_name,  self.tr_data[charts][df_name].columns: in _floatize_df: ', df_name, self.tr_data['charts'][df_name].columns)
         self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].astype('string')
         for column in self.tr_data['charts'][df_name].columns:
             self.tr_data['charts'][df_name][column] = self.tr_data['charts'][df_name][column].str.strip('+-')
