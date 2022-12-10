@@ -4,7 +4,7 @@ from PyQt5.QtCore import *
 import sqlite3
 import pandas as pd
 import time
-import sys, os, json
+import sys, os, json, logging
 from datetime import datetime
 # import matplotlib.pyplot as plt
 
@@ -14,6 +14,23 @@ path = r'D:\myprojects\TradingDB'
 if not os.path.exists(path):
      os.mkdir(path)
 os.chdir(path) 
+
+# importing module
+import logging
+
+# Create and configure logger
+logging.basicConfig(filename="kiwoom_log.log", format='%(asctime)s %(message)s', filemode='w')
+# Creating an object
+logger = logging.getLogger()
+# Setting the threshold of logger to DEBUG
+logger.setLevel(logging.DEBUG)
+# # Test messages
+# logger.debug("Harmless debug Message")
+# logger.info("Just an information")
+# logger.warning("Its a Warning")
+# logger.error("Did you try to divide by zero")
+# logger.critical("Internet is down")
+
 
 TR_REQ_TIME_INTERVAL = 0.2
 
@@ -123,20 +140,25 @@ class Kiwoom(QAxWidget):
             'opw00001' : ['통화코드', '외화예수금', '원화대용평가금', '해외주식증거금', '출금가능금액(예수금)', '주문가능금액(예수금)', '외화미수(합계)', '외화현금미수금', 
                           '연체료', 'd+1외화예수금', 'd+2외화예수금', 'd+3외화예수금', 'd+4외화예수금'],
             # 주식틱차트조회요청
-            'opt10079' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분',
-                            '종목정보', '수정주가이벤트', '전일종가'],
+            # 'opt10079' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분',
+            #                 '종목정보', '수정주가이벤트', '전일종가'],
+            'opt10079' : ['체결시간', '시가', '고가', '저가', '현재가', '거래량'],
             # 주식분봉차트조회요청
-            'opt10080' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분', 
-                            '종목정보', '수정주가이벤트', '전일종가'],
+            # 'opt10080' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분', 
+            #                 '종목정보', '수정주가이벤트', '전일종가'],
+            'opt10080' : ['체결시간', '시가', '고가', '저가', '현재가', '거래량'],        
             # 주식일봉차트조회요청
-            'opt10081' : ['종목코드', '현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분',
-                            '소업종구분', '종목정보', '수정주가이벤트', '전일종가'],
+            # 'opt10081' : ['종목코드', '현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분',
+            #                 '소업종구분', '종목정보', '수정주가이벤트', '전일종가'],
+            'opt10081' : ['일자', '시가', '고가', '저가', '현재가', '거래량', '거래대금'],            
             # 주식주봉차트조회요청
-            'opt10082' : ['현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분', 
-                          '종목정보', '수정주가이벤트', '전일종가'],
+            # 'opt10082' : ['현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분', 
+            #               '종목정보', '수정주가이벤트', '전일종가'],
+            'opt10082' : ['일자', '시가', '고가', '저가', '현재가', '거래량', '거래대금'],
             # 주식월봉차트조회요청
-            'opt10083' : ['현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분',
-                          '종목정보',' 수정주가이벤트', '전일종가'],
+            # 'opt10083' : ['현재가', '거래량', '거래대금', '일자', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분',
+            #               '종목정보',' 수정주가이벤트', '전일종가'],
+            'opt10083' : ['일자', '시가', '고가', '저가', '현재가', '거래량', '거래대금'],
             # 주식관심종목정보요청
             'OPTKWFID' : ['종목코드', '종목명', '현재가', '기준가', '전일대비', '전일대비기호', '등락율', '거래량', '거래대금', '체결량', 
                             '체결강도', '전일거래량대비', '매도호가', '매수호가', '매도1차호가', '매도2차호가', '매도3차호가', '매도4차호가',
@@ -196,32 +218,36 @@ class Kiwoom(QAxWidget):
         self.timer_count += 1
         stock = self.all_stocks['tickerkeys'][self.stockcode]
 
-        for key in self.tr_data['charts'].keys():
-            if '3분' in key and stock in key:
-                self.tr_data['charts'].pop(key)                
+        for df_name in self.tr_data['charts'].keys():
+            if '3분' in df_name and stock in df_name:
+                self.tr_data['charts'].pop(df_name)                
                 break
 
         print('requesting 3min charts')
-        self.min3(stock)          
+        # df_name should be input to self._apply_strategies as a list form
+        df_name = [self.min3(stock)]
+        self._apply_strategies(df_name)          
         print('completed 3min chart request')      
 
-        # for key in self.tr_data['charts'].keys():
-        #     self._data_to_sql(key+datetime.today().strftime('%H%M%S'), key+'.db', self.tr_data['charts'][key])
+        # for df_name in self.tr_data['charts'].keys():
+        #     self._data_to_sql(df_name+datetime.today().strftime('%H%M%S'), df_name+'.db', self.tr_data['charts'][df_name])
 
  
         if (self.timer_count*3 % 30) == 0:
-            for key in self.tr_data['charts'].keys():
-                if '30분' in key and stock in key:
-                    self.tr_data['charts'].pop(key)
+            for df_name in self.tr_data['charts'].keys():
+                if '30분' in df_name and stock in df_name:
+                    self.tr_data['charts'].pop(df_name)
                     break
-            self.min30(stock)
+            df_name = [self.min30(stock)]
+            self._apply_strategies(df_name)
 
         if (self.timer_count*3 % 60) == 0:
-            for key in self.tr_data['charts'].keys():
-                if '60분' in key and stock in key:
-                    self.tr_data['charts'].pop(key)
+            for df_name in self.tr_data['charts'].keys():
+                if '60분' in df_name and stock in df_name:
+                    self.tr_data['charts'].pop(df_name)
                     break
-            self.min60(stock)
+            df_name = [self.min60(stock)]
+            self._apply_strategies(df_name)
             self._timersave_df
    
 
@@ -281,17 +307,18 @@ class Kiwoom(QAxWidget):
 
         # 주식시세, 주식체결, 주문체결, 주식일봉차트, 주식틱차트, 관심종목 will have df_name consising of
         # stock_realtype_timeunit : i.e. 삼성전자_주식일봉차트_30분봉
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
         if realtype in ['주식분봉차트', '주식틱차트']:    
             # df_name is same as tr_datakeys, which is done in _df_generator
             # db file names are differently named in _data_to_sql, which is done in _timersave_df  
-            df_name = self.all_stocks['tickerkeys'][self.stockcode]+'_'+realtype+'_'+self.requesting_time_unit
+            df_name = stock+'_'+realtype+'_'+self.requesting_time_unit
             if df_name in self.tr_data['charts'].keys():
                 self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].append(pd.DataFrame(data), ignore_index=True)
             else:
                 self.tr_data['charts'][df_name] = pd.DataFrame(data)
 
         elif realtype in ['주식일봉차트', '주식주봉차트', '주식월봉차트']:
-            df_name = self.all_stocks['tickerkeys'][self.stockcode]+'_'+realtype
+            df_name = stock+'_'+realtype
             if df_name in self.tr_data['charts'].keys():
                 self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].append(pd.DataFrame(data), ignore_index=True)
             else:
@@ -466,10 +493,10 @@ class Kiwoom(QAxWidget):
         elif gubun == '1':
             self._domestic_balance_change(itemcnt, fidlist)
         
-        # try:
-        #     self._event_loop_exit('order')
-        # except AttributeError:
-        #     pass
+        try:
+            self._event_loop_exit('order')
+        except AttributeError:
+            pass
 
     def _real_chejan_placed_made(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
         # print('\nitemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
@@ -683,8 +710,67 @@ class Kiwoom(QAxWidget):
             for key in self.fids_dict['opw10075']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             self._df_generator('미체결', add)
-        print(f'미체결 수신\n', self.tr_data['noncharts']['미체결'])          
+        print(f'미체결 수신\n', self.tr_data['noncharts']['미체결'])  
+    
+    
+    # The following methods preprocess received data from the server and generate data for strategies
+    def _floatize_df(self, df_name):
+        '''df_name should be one string'''
+        for column in self.tr_data['charts'][df_name].columns:
+            self.tr_data['charts'][df_name][column] = self.tr_data['charts'][df_name][column].str.strip('+-')
+        self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].astype('float')
+    
+    def _mas(self, df_name):
+        '''df_name should be one string'''
+        ma_types = {'MA240':240, 'MA120':120, 'MA60':60, 'MA20':20, 'MA10':10, 'MA5':5, 'MA3':3}
+        self.tr_data['charts'][df_name]['거래량변화율'] = self.tr_data['charts'][df_name]['거래량'].pct_change(1)
+        for ma, term in ma_types.items():
+            self.tr_data['charts'][df_name][ma] = self.tr_data['charts'][df_name]['현재가'].rolling(window=term).mean()
 
+    def _bollinger(self, df_name):
+        '''df_name should be one string'''
+        if 'MA20' not in self.tr_data['charts'][df_name].columns:
+            self.tr_data['charts'][df_name]['MA20'] = self.tr_data['charts'][df_name]['현재가'].rolling(window=20).mean()
+        self.tr_data['charts'][df_name]['STD'] = self.tr_data['charts'][df_name]['현재가'].rolling(window=20).std()
+        self.tr_data['charts'][df_name]['Upper'] = self.tr_data['charts'][df_name]['MA20'] + 2 * self.tr_data['charts'][df_name]['STD']
+        self.tr_data['charts'][df_name]['Lower'] = self.tr_data['charts'][df_name]['MA20'] - 2 * self.tr_data['charts'][df_name]['STD']
+        self.tr_data['charts'][df_name]['PB'] = (self.tr_data['charts'][df_name]['현재가'] - self.tr_data['charts'][df_name]['저가']) / (self.tr_data['charts'][df_name]['Upper'] - self.tr_data['charts'][df_name]['Lower'])
+        self.tr_data['charts'][df_name]['Bandwidth'] = (self.tr_data['charts'][df_name]['현재가'] - self.tr_data['charts'][df_name]['저가']) / self.tr_data['charts'][df_name]['MA20'] * 100
+        self.tr_data['charts'][df_name]['SQZ'] = (self.tr_data['charts'][df_name]['Upper'] - self.tr_data['charts'][df_name]['Lower']) / self.tr_data['charts'][df_name]['MA20'] * 100
+    
+    def _RSI(self, df_name):
+        '''df_name should be one string'''
+        self.tr_data['charts'][df_name]['Diff'] = self.tr_data['charts'][df_name]['현재가'].diff(1)
+        self.tr_data['charts'][df_name]['Gain'] = self.tr_data['charts'][df_name]['Diff'].clip(lower=0).round(2)
+        self.tr_data['charts'][df_name]['Loss'] = self.tr_data['charts'][df_name]['Diff'].clip(upper=0).abs().round(2)
+        self.tr_data['charts'][df_name]['AvgGain'] = self.tr_data['charts'][df_name]['Gain'].rolling(window=10).mean()
+        self.tr_data['charts'][df_name]['AvgLoss'] = self.tr_data['charts'][df_name]['Loss'].rolling(window=10).mean()
+        self.tr_data['charts'][df_name]['RSI'] = 100 - 100 / (1 + self.tr_data['charts'][df_name]['AvgGain'] / self.tr_data['charts'][df_name]['AvgLoss'])
+
+    def _MFI(self, df_name):
+        '''df_name should be in one string'''
+        self.tr_data['charts'][df_name]['TP'] = (self.tr_data['charts'][df_name]['고가'] + self.tr_data['charts'][df_name]['저가'] + self.tr_data['charts'][df_name]['현재가']) / 3
+        self.tr_data['charts'][df_name]['PMF'] = 0
+        self.tr_data['charts'][df_name]['NMF'] = 0
+        for idx in range(len(self.tr_data['charts'][df_name])-1):
+            if self.tr_data['charts'][df_name]['TP'].values[idx] < self.tr_data['charts'][df_name]['TP'].values[idx+1]:
+                self.tr_data['charts'][df_name]['PMF'].values[idx+1] = self.tr_data['charts'][df_name]['TP'].values[idx+1] * self.tr_data['charts'][df_name]['거래량'].values[idx+1]
+                self.tr_data['charts'][df_name]['NMF'] = 0
+            else:
+                self.tr_data['charts'][df_name]['NMF'].values[idx+1] = self.tr_data['charts'][df_name]['TP'].values[idx+1] * self.tr_data['charts'][df_name]['거래량'].values[idx+1]
+                self.tr_data['charts'][df_name]['PMF'] = 0
+        self.tr_data['charts'][df_name]['MFR'] = self.tr_data['charts'][df_name]['PMF'].rolling(window=10).sum() / self.tr_data['charts'][df_name]['NMF'].rolling(window=10).sum()
+        self.tr_data['charts'][df_name]['MFR10'] = 100 - 100 / (1 + self.tr_data['charts'][df_name]['MFR'])
+    
+    def _stochastic(self, df_name):
+        '''df_name should be in one string'''
+        k = 14
+        d = 3
+        self.tr_data['charts'][df_name]['K고가'] = self.tr_data['charts'][df_name]['고가'].rolling(k).max()
+        self.tr_data['charts'][df_name]['K저가'] = self.tr_data['charts'][df_name]['저가'].rolling(k).min()
+        self.tr_data['charts'][df_name]['%K'] = (self.tr_data['charts'][df_name]['현재가'] - self.tr_data['charts'][df_name]['K저가']) * 100 / (self.tr_data['charts'][df_name]['K고가'] - self.tr_data['charts'][df_name]['K저가'])
+        self.tr_data['charts'][df_name]['%D'] = self.tr_data['charts'][df_name]['%K'].rolling(d).mean()      
+    
     def _chart_request(self, stock, date_or_tick, pricetype=1):
         stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode = stockcode  
@@ -703,8 +789,11 @@ class Kiwoom(QAxWidget):
             self.set_input_value('틱범위', date_or_tick)
             self.set_input_value('수정주가구분', pricetype)
             self.comm_rq_data(str.upper(trcode), trcode, 0, '0001')
-            date_edited = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f'{stock} {date_edited}부터 {self.requesting_time_unit}차트 요청') 
+            date_edited = datetime.now().strftime('%Y-%m-%d %H:%M:%S')            
+        # The following message is commented out,
+        # because data can be received before the message can be printed, 
+        # resulting in printing '수신완료' messages first and '요청' messages later
+        # print(f'{stock} {date_edited}부터 {self.requesting_time_unit}차트 요청')         
 
         # while self.remaining_data == True:
         #     time.sleep(TR_REQ_TIME_INTERVAL)
@@ -763,23 +852,56 @@ class Kiwoom(QAxWidget):
         self.requesting_time_unit = str(ticktime)+'틱'
         self._chart_request(stock, ticktime, pricetype)
     
-    # Simplified chart request functions
+    # Simplified chart request functions. Return df_name
     def min3(self, stock):
         self.request_minute_chart(stock, 3, pricetype=1)
+        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def min10(self, stock):
         self.request_minute_chart(stock, 10, pricetype=1)
+        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def min30(self, stock):
         self.request_minute_chart(stock, 30, pricetype=1)
+        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def min60(self, stock):
         self.request_minute_chart(stock, 60, pricetype=1)
+        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def daily(self, stock):
         self.request_daily_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
+        return stock+'_'+'주식일봉차트'
     def weekly(self, stock):
         self.request_weekly_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
+        return stock+'_'+'주식주봉차트'        
     def monthly(self, stock):
         self.request_monthly_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
+        return stock+'_'+'주식월봉차트'
+    
+    def onestop_stock(self, stock):
+        df_name_collect = {'3분봉':self.min3, '10분봉':self.min10, '30분봉':self.min30, '60분봉':self.min60, 
+                         '일봉':self.daily, '주봉':self.weekly, '월봉':self.monthly}
+        df_names = {}
+        # df_func below will return df_name
+        for df_key, df_func in df_name_collect.items():
+            df_names[df_key] = df_func(stock)
 
-
+        self._apply_strategies(df_names.values())
+        
+        # for df_name, df in self.tr_data['charts'].items():
+        #     with sqlite3.connect('chart_test.db') as file:
+        #         df.to_sql(df_name, file, if_exists='append')
+                
+      
+    # *inputs take multiple functions to use and a list form of input values in order.
+    # The functions will be inputs[:-1] and input values will be imputs[-1]
+    def _apply_strategies(self, df_names):
+        '''df_names should be in a list form'''
+        def _fmap(*inputs):
+            '''*inputs should be functions first and valuse last. And the values should be in a list form'''
+            for func in inputs[:-1]:
+                for input in inputs[-1]:
+                    func(input)
+        _fmap(self._floatize_df, self._mas, self._bollinger, self._RSI, self._MFI, self._stochastic, df_names)
+        
+        
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
         stocks = [] 
@@ -871,6 +993,7 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # tick('삼성전자')
 # min30('삼성전자')
 # min10('삼성전자')
-daily('삼성전자')
-min3('삼성전자')
+# daily('삼성전자')
+# min3('삼성전자')
+kiwoom.onestop_stock('삼성전자')
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
