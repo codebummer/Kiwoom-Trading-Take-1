@@ -220,13 +220,16 @@ class Kiwoom(QAxWidget):
 
         for df_name in self.tr_data['charts'].keys():
             if '3분' in df_name and stock in df_name:
-                self.tr_data['charts'].pop(df_name)                
+                print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data ', df_name, '\n', self.tr_data['charts'][df_name])
+                self.tr_data['charts'].pop(df_name)
                 break
-
+        
         print('requesting 3min charts')
+        print('self.tr_data[charts].keys() in _timer_refresh_data: ', self.tr_data['charts'].keys())        
+        df_name = self.min3(stock)
+        print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data', df_name, '\n', self.tr_data['charts'][df_name])
         # df_name should be input to self._apply_strategies as a list form
-        df_name = [self.min3(stock)]
-        self._apply_strategies(df_name)          
+        self._apply_strategies([df_name])          
         print('completed 3min chart request')      
 
         # for df_name in self.tr_data['charts'].keys():
@@ -770,6 +773,19 @@ class Kiwoom(QAxWidget):
         self.tr_data['charts'][df_name]['K저가'] = self.tr_data['charts'][df_name]['저가'].rolling(k).min()
         self.tr_data['charts'][df_name]['%K'] = (self.tr_data['charts'][df_name]['현재가'] - self.tr_data['charts'][df_name]['K저가']) * 100 / (self.tr_data['charts'][df_name]['K고가'] - self.tr_data['charts'][df_name]['K저가'])
         self.tr_data['charts'][df_name]['%D'] = self.tr_data['charts'][df_name]['%K'].rolling(d).mean()      
+
+      
+    # *inputs take multiple functions to use and a list form of input values in order.
+    # The functions will be inputs[:-1] and input values will be imputs[-1]
+    def _apply_strategies(self, df_names):
+        '''df_names should be in a list form'''
+        def _fmap(*inputs):
+            '''*inputs should be functions first and values last. And the values should be in a list form'''
+            for func in inputs[:-1]:
+                for input in inputs[-1]:
+                    func(input)
+        _fmap(self._floatize_df, self._mas, self._bollinger, self._RSI, self._MFI, self._stochastic, df_names)
+        
     
     def _chart_request(self, stock, date_or_tick, pricetype=1):
         stockcode = self.all_stocks['stockkeys'][stock]
@@ -885,22 +901,11 @@ class Kiwoom(QAxWidget):
 
         self._apply_strategies(df_names.values())
         
-        # for df_name, df in self.tr_data['charts'].items():
-        #     with sqlite3.connect('chart_test.db') as file:
-        #         df.to_sql(df_name, file, if_exists='append')
+        for df_name, df in self.tr_data['charts'].items():
+            with sqlite3.connect('chart_test.db') as file:
+                df.to_sql(df_name, file, if_exists='append')
                 
-      
-    # *inputs take multiple functions to use and a list form of input values in order.
-    # The functions will be inputs[:-1] and input values will be imputs[-1]
-    def _apply_strategies(self, df_names):
-        '''df_names should be in a list form'''
-        def _fmap(*inputs):
-            '''*inputs should be functions first and valuse last. And the values should be in a list form'''
-            for func in inputs[:-1]:
-                for input in inputs[-1]:
-                    func(input)
-        _fmap(self._floatize_df, self._mas, self._bollinger, self._RSI, self._MFI, self._stochastic, df_names)
-        
+
         
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
