@@ -272,11 +272,12 @@ class Kiwoom(QAxWidget):
                 if renew in df_name:
                     breakcount += 1
                     applylist.add(df_name)
-                    self.tr_data['charts'].pop(df_name)
                     stock = df_name.split('_')[0]
+                    self.tr_data['charts'].pop(df_name)
                     call(stock)
                     # Due to multiple stocks, it cannot break just for the first match                    
                     if breakcount == len(self.following_stocks):
+                        breakcount = 0
                         break
         
         # PyQt's signal-slot can be completed nonsequentially. 
