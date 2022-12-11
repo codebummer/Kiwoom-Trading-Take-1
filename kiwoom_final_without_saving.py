@@ -72,7 +72,8 @@ class Kiwoom(QAxWidget):
         }
         
         '''
-        self.stockcode = 0        
+        self.stockcode = 0
+        self.following_stocks = set()
         self.requesting_time_unit = ''
         self.df_names = {}
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
@@ -257,20 +258,26 @@ class Kiwoom(QAxWidget):
     def _timer_refresh_data(self, renew_list):
         dfname_counter = len(self.tr_data['charts'].keys())
         applylist = set()
-        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        # stock = self.all_stocks['tickerkeys'][self.stockcode]
         
         # df_name should be input to self._apply_strategies as a list form.
         # self.min3() returns df_name as a string, 'return stock+realtype+self.requesting_time_unit',
         # which means df_name here below have to be in a list form.
         # However, this is done by the last line of this method.
-        # self._apply_strategies(self.tr_data['charts'].keys())               
+        # self._apply_strategies(self.tr_data['charts'].keys()) 
+        breakcount = 0           
         for renew, call in renew_list.items():
             for df_name in self.tr_data['charts'].keys():
-                if renew in df_name and stock in df_name:
+                # if renew in df_name and stock in df_name:
+                if renew in df_name:
+                    breakcount += 1
                     applylist.add(df_name)
                     self.tr_data['charts'].pop(df_name)
+                    stock = df_name.split('_')[0]
                     call(stock)
-                    break
+                    # Due to multiple stocks, it cannot break just for the first match                    
+                    if breakcount == len(self.following_stocks):
+                        break
         
         # PyQt's signal-slot can be completed nonsequentially. 
         # When the requested data is not received, 
@@ -633,7 +640,9 @@ class Kiwoom(QAxWidget):
     def _opt10080(self, rqname, trcode):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
-        add = {}
+        self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
+        print('stockcode test in _opt10080: ', self.stockcode)
+        add = {}        
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10080']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
@@ -646,6 +655,8 @@ class Kiwoom(QAxWidget):
     def _opt10081(self, rqname, trcode):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
+        self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
+        print('stockcode test in _opt10081: ', self.stockcode)        
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10081']:
@@ -659,6 +670,8 @@ class Kiwoom(QAxWidget):
     def _opt10082(self, rqname, trcode):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식주봉차트')
+        self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
+        print('stockcode test in _opt10081: ', self.stockcode)
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10082']:
@@ -671,6 +684,8 @@ class Kiwoom(QAxWidget):
     def _opt10083(self, rqname, trcode):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식월봉차트')
+        self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
+        print('stockcode test in _opt10083: ', self.stockcode)
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10083']:
@@ -925,14 +940,18 @@ class Kiwoom(QAxWidget):
     def monthly(self, stock):
         self.request_monthly_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
     
-    def onestop_stock(self, stock):
+    def onestop_stock(self, *stocks):
         chart_funcs = [self.min3, self.min10, self.min30, self.min60, self.daily, self.weekly, self.monthly]
-
+        
+        for stock in stocks:
+            self.following_stocks.add(stock)
+        
         for chart_func in chart_funcs:
-            chart_func(stock)
+            for stock in stocks:
+                chart_func(stock)
         
         while True:
-            if len(self.tr_data['charts'].keys()) == len(chart_funcs):
+            if len(self.tr_data['charts'].keys()) == len(chart_funcs)*len(stocks):
                 break          
 
         self._apply_strategies(self.tr_data['charts'].keys())
@@ -1040,4 +1059,4 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # daily('삼성전자')
 # min3('삼성전자')
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
-kiwoom.onestop_stock('삼성전자')
+kiwoom.onestop_stock('현대차', '삼성전자', 'LG에너지솔루션')
