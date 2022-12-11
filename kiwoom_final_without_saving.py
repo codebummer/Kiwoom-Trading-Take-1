@@ -51,8 +51,30 @@ class Kiwoom(QAxWidget):
         self.remaining_data = True
         self.fidlist = []
         self.tr_data = {'noncharts':{}, 'charts':{}}
+        '''
+        self.tr_data will contain all the data this code will generate. It has a complicated structure as following:
+        
+        self.tr_data = { 
+        
+        'noncharts' 비차트관련 모든 수신데이터: 
+            {df_name named realtype i.e. 주식시세: data in dataframe},
+            {df_name 잔고수신: dataframe},
+            {df_name 주문메세지: dataframe},
+            {df_name 예수금상세현황: dataframe},
+            .......
+        
+        
+        'charts' 차트관련 모든 수신데이터: 
+            {df_name named stock+realtype+self.requesting_time_unit i.e. 삼성전자_주식분봉차트_30분봉: data in dataframe },
+            {df_name 삼성전자_주식일봉차트: dataframe},
+            .......               
+                
+        }
+        
+        '''
         self.stockcode = 0        
         self.requesting_time_unit = ''
+        self.df_names = {}
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
         
         # tr data normally refer to the data set index of the past data, which consists of input and output names.
@@ -205,55 +227,70 @@ class Kiwoom(QAxWidget):
         self.savetimer.timeout.connect(self._timer_refresh_data)
     
     def timeset(self, minute_interval=3):
-        # millisec_interval = minute_interval * 60_000
-        # millisec_interval = 0.01 * 60_000
-        millisec_interval = 1 * 60_000
+        millisec_interval = minute_interval * 60_000
         self.savetimer.setInterval(millisec_interval)
         self.savetimer.start()
         print(f'Auto chart data requesting interval is set for {minute_interval} minute(s)')        
         print(f'Autosaving interval is set for {minute_interval*20} minute(s)')       
 
     def _timer_refresh_data(self):
+        dfname_counter = len(self.tr_data['charts'].keys())
+        applylist = set()
         self.timer_count += 1
         stock = self.all_stocks['tickerkeys'][self.stockcode]
 
         for df_name in self.tr_data['charts'].keys():
             if '3분' in df_name and stock in df_name:
                 # print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data ', df_name, '\n', self.tr_data['charts'][df_name])
+                applylist.add(df_name)                
                 self.tr_data['charts'].pop(df_name)
+
                 break
-        
-        # print('requesting 3min charts <- _timer_refresh_data')
-        # print('stock, df_name, self.tr_data[charts].keys() in _timer_refresh_data: ', stock, df_name,'<->', self.tr_data['charts'].keys())        
         
         # df_name should be input to self._apply_strategies as a list form.
         # self.min3() returns df_name as a string, 'return stock+realtype+self.requesting_time_unit',
         # which means df_name here below have to be in a list form.
         # However, this is done by the last line of this method.
-        # self._apply_strategies(df_name.values())       
-        df_name = {}
-        df_name['3분봉'] = self.min3(stock)
+        # self._apply_strategies(self.tr_data['charts'].keys())       
+        self.min3(stock)
  
         if (self.timer_count*3 % 30) == 0:
             for df_name in self.tr_data['charts'].keys():
                 if '30분' in df_name and stock in df_name:
+                    applylist.add(df_name)                    
                     self.tr_data['charts'].pop(df_name)
                     break
-            df_name['30분봉'] = self.min30(stock)
+            self.min30(stock)
 
         if (self.timer_count*3 % 60) == 0:
             for df_name in self.tr_data['charts'].keys():
                 if '60분' in df_name and stock in df_name:
-                    self.tr_data['charts'].pop(df_name)
+                    applylist.add(df_name)              
+                    self.tr_data['charts'].pop(df_name) 
                     break
-            df_name['60분봉'] = self.min60(stock)
+            self.min60(stock)
             
             self._timersave_df
+
+        
+        # PyQt's signal-slot can be completed nonsequentially. 
+        # When the requested data is not received, 
+        # the execution of the code can be already past the requesting data procedures without waiting,
+        # resulting in the code trying to index the data not yet received.
+        # This will cause an error hard to fix. 
+        # This is why the follwing loop is added to wait for all the data to be received 
+        # before applying strategies to the data.
+        # When all the data are received, the number of received data will be same as before again.
+        while True:
+            if dfname_counter == len(self.tr_data['charts'].keys()):
+                break
+        print('Data updated at the set time interval')
         # multiple timers can be activated simulanteously, 
         # which is why _apply_strategies is at the bottom line of this method
-        # to reflect all the possible changes at once.
-        self._apply_strategies(df_name.values())
-   
+        # to reflect all the possible changes at once.       
+        self._apply_strategies(applylist)
+        print('renewed data processing completed')
+        self._event_loop_exit('tr')
 
     def _timersave_df(self):
         print('\nAutosaving in progress...')
@@ -512,8 +549,7 @@ class Kiwoom(QAxWidget):
             add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
         #the second argument, stockcode, is assigned '', 
         #which makes _df_generator df_name without stock name in it.
-        df_name, df = self._df_generator('체결잔고', add)
-        print(df)
+        self._df_generator('체결잔고', add)
 
     def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
         # print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
@@ -527,8 +563,7 @@ class Kiwoom(QAxWidget):
         add = {}
         for fid in fidlist_checked:
             add[self.fids_dict['신용잔고'][int(fid)]] = [self._get_chejan_data(fid)]
-        df_name, df = self._df_generator('잔고변경', add) 
-        print(df)
+        self._df_generator('잔고변경', add) 
     
     def _realtype_stock_status(self, code):
         add= {}
@@ -538,8 +573,7 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
         self.stockcode = code
-        df_name, df = self._df_generator('주식시세', add)
-        print(df)
+        self._df_generator('주식시세', add)
 
     def _realtype_stock_made(self, code): 
         add= {}
@@ -549,8 +583,7 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
         self.stockcode = code       
-        df_name, df = self._df_generator('주식체결', add)
-        print(df)
+        self._df_generator('주식체결', add)
  
     def _realtype_order_made(self, code):
         add= {}
@@ -560,8 +593,7 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
 
         self.stockcode = code        
-        df_name, df = self._df_generator('주문체결', add)   
-        print(df)
+        self._df_generator('주문체결', add)   
     
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
@@ -581,14 +613,15 @@ class Kiwoom(QAxWidget):
     
     # 주식틱차트조회요청 결과처리
     def _opt10079(self, rqname, trcode):
+        df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식틱차트')        
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10079']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-            self._df_generator('주식틱차트', add)   
+            df_name = self._df_generator('주식틱차트', add)   
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-        print(f'{stock} {self.requesting_time_unit}틱차트 정보 {data_cnt}건 수신')         
+        print(f'{stock} {self.requesting_time_unit}틱차트 정보 {data_cnt}건 수신')
         
     # 주식분봉차트조회요청 결과처리
     def _opt10080(self, rqname, trcode):
@@ -600,7 +633,7 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             df_name = self._df_generator('주식분봉차트', add)   
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-        print(f'{stock} {self.requesting_time_unit}분봉차트 정보 {data_cnt}건 수신')    
+        print(f'{stock} {self.requesting_time_unit}분봉차트 정보 {data_cnt}건 수신') 
         # print(self.tr_data['charts'][df_name])
         
     # 주식일봉차트조회요청 결과처리
@@ -615,40 +648,42 @@ class Kiwoom(QAxWidget):
         stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'{stock} 일봉차트 정보 {data_cnt}건 수신')
         # print(self.tr_data['charts'][df_name])
-
     
     # 주식주봉차트조회요청 결과처리
     def _opt10082(self, rqname, trcode):
+        df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식주봉차트')
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10082']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
-            self._df_generator('주식주봉차트', add)
+            df_name = self._df_generator('주식주봉차트', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-        print(f'{stock} 주봉차트 정보 {data_cnt}건 수신')    
+        print(f'{stock} 주봉차트 정보 {data_cnt}건 수신')
     
     # 주식월봉차트조회요청 결과처리
     def _opt10083(self, rqname, trcode):
+        df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식월봉차트')
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10083']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
-            self._df_generator('주식월봉차트', add)
+            df_name = self._df_generator('주식월봉차트', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-        print(f'{stock} 월봉차트 정보 {data_cnt}건 수신')                
+        print(f'{stock} 월봉차트 정보 {data_cnt}건 수신')
     
     # _optkfid is actually for simultaneous multiple stock data requests, not 관심종목
     # This actually returns stock codes in its output values
-    def _optkwfid(self, rqname, trcode):    
+    def _optkwfid(self, rqname, trcode):
+        df_name = ''    
         data_cnt = self._get_repeat_cont(trcode, '관심종목')
         add= {}
         for idx in range(data_cnt):
             for key in self.fids_dict['OPTKWFID']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             self.stockcode = add['종목코드'][0]
-            self._df_generator('관심종목', add)
+            df_name = self._df_generator('관심종목', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'{stock} 관심종목 정보 {data_cnt}건 수신')  
 
@@ -869,40 +904,33 @@ class Kiwoom(QAxWidget):
     # Simplified chart request functions. Return df_name
     def min3(self, stock):
         self.request_minute_chart(stock, 3, pricetype=1)
-        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def min10(self, stock):
         self.request_minute_chart(stock, 10, pricetype=1)
-        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def min30(self, stock):
         self.request_minute_chart(stock, 30, pricetype=1)
-        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def min60(self, stock):
         self.request_minute_chart(stock, 60, pricetype=1)
-        return stock+'_'+'주식분봉차트'+'_'+self.requesting_time_unit
     def daily(self, stock):
         self.request_daily_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
-        return stock+'_'+'주식일봉차트'
     def weekly(self, stock):
         self.request_weekly_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
-        return stock+'_'+'주식주봉차트'        
     def monthly(self, stock):
         self.request_monthly_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
-        return stock+'_'+'주식월봉차트'
     
     def onestop_stock(self, stock):
-        df_name_collect = {'3분봉':self.min3, '10분봉':self.min10, '30분봉':self.min30, '60분봉':self.min60, 
-                         '일봉':self.daily, '주봉':self.weekly, '월봉':self.monthly}
-        df_names = {}
-        # chart_func below will return df_name
-        for df_key, chart_func in df_name_collect.items():
-            df_names[df_key] = chart_func(stock)
+        chart_funcs = [self.min3, self.min10, self.min30, self.min60, self.daily, self.weekly, self.monthly]
 
-        self._apply_strategies(df_names.values())
+        for chart_func in chart_funcs:
+            chart_func(stock)
         
-        # for df_name, df in self.tr_data['charts'].items():
-        #     with sqlite3.connect('chart_test.db') as file:
-        #         df.to_sql(df_name, file, if_exists='append')
+        while True:
+            if len(self.tr_data['charts'].keys()) == len(chart_funcs):
+                break          
 
+        self._apply_strategies(self.tr_data['charts'].keys())
+        print('All data processed to apply strategies')
+        
+        self._event_loop_exec('tr')
         
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
@@ -970,7 +998,7 @@ app = QApplication(sys.argv)
 
 kiwoom = Kiwoom()
 
-type(kiwoom.account_num)
+# type(kiwoom.account_num)
 
 # if you want, set timer interval (minutes) for autosaving. Default interval is set to 5 minutes.
 # kiwoom.timeset(1)
@@ -997,5 +1025,5 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # min10('삼성전자')
 # daily('삼성전자')
 # min3('삼성전자')
-kiwoom.onestop_stock('삼성전자')
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
+kiwoom.onestop_stock('삼성전자')
