@@ -946,13 +946,14 @@ class Kiwoom(QAxWidget):
         for chart_func in chart_funcs:
             for stock in stocks:
                 chart_func(stock)
+            print('\n')
         
         while True:
             if len(self.tr_data['charts'].keys()) == len(chart_funcs)*len(stocks):
                 break          
 
         self._apply_strategies(self.tr_data['charts'].keys())
-        print('All data processed to apply strategies')
+        print('All data processed to apply strategies\n')
         
 
         with sqlite3.connect('test_tr_data.db') as file:
