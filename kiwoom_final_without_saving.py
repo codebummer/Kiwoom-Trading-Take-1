@@ -298,7 +298,7 @@ class Kiwoom(QAxWidget):
             # which is why _apply_strategies is at the bottom line of this method
             # to reflect all the possible changes at once.       
             self._apply_strategies(applylist)
-            print('Renewed data processing completed')
+            print('Renewed data processing completed\n')
 
             with sqlite3.connect('test_tr_data.db') as file:
                 for df_name in applylist:
@@ -642,7 +642,6 @@ class Kiwoom(QAxWidget):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식분봉차트')
         self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
-        print('stockcode test in _opt10080: ', self.stockcode)
         add = {}        
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10080']:
@@ -657,7 +656,6 @@ class Kiwoom(QAxWidget):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식일봉차트')
         self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
-        print('stockcode test in _opt10081: ', self.stockcode)        
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10081']:
@@ -672,7 +670,6 @@ class Kiwoom(QAxWidget):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식주봉차트')
         self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
-        print('stockcode test in _opt10081: ', self.stockcode)
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10082']:
@@ -686,7 +683,6 @@ class Kiwoom(QAxWidget):
         df_name = ''
         data_cnt = self._get_repeat_cont(trcode, '주식월봉차트')
         self.stockcode = self._get_comm_data(trcode, rqname, 0, '종목코드')
-        print('stockcode test in _opt10083: ', self.stockcode)
         add = {}
         for idx in range(data_cnt):
             for key in self.fids_dict['opt10083']:
