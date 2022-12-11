@@ -227,7 +227,8 @@ class Kiwoom(QAxWidget):
         self.savetimer.timeout.connect(self._timer_refresh_data)
     
     def timeset(self, minute_interval=3):
-        millisec_interval = minute_interval * 60_000
+        # millisec_interval = minute_interval * 60_000
+        millisec_interval = 0.3 * 60_000
         self.savetimer.setInterval(millisec_interval)
         self.savetimer.start()
         print(f'Auto chart data requesting interval is set for {minute_interval} minute(s)')        
@@ -290,6 +291,11 @@ class Kiwoom(QAxWidget):
         # to reflect all the possible changes at once.       
         self._apply_strategies(applylist)
         print('Renewed data processing completed')
+
+        with sqlite3.connect('test_tr_data.db') as file:
+            for df_name in applylist:
+                self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')
+        
         self._event_loop_exit('tr')
 
     def _timersave_df(self):
@@ -929,6 +935,12 @@ class Kiwoom(QAxWidget):
 
         self._apply_strategies(self.tr_data['charts'].keys())
         print('All data processed to apply strategies')
+        
+
+        with sqlite3.connect('test_tr_data.db') as file:
+            for df_name in self.tr_data['charts'].keys():
+                self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')
+            
         
         self._event_loop_exec('tr')
         
