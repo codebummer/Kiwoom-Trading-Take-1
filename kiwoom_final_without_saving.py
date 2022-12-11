@@ -289,7 +289,7 @@ class Kiwoom(QAxWidget):
         # which is why _apply_strategies is at the bottom line of this method
         # to reflect all the possible changes at once.       
         self._apply_strategies(applylist)
-        print('renewed data processing completed')
+        print('Renewed data processing completed')
         self._event_loop_exit('tr')
 
     def _timersave_df(self):
