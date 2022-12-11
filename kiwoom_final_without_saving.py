@@ -186,6 +186,12 @@ class Kiwoom(QAxWidget):
                             '일자', '우선매도잔량', '우선매수잔량', '우선매도건수', '우선매수건수', '총매도잔량', '총매수잔량', '총매도건수', 
                             '총매수건수', '패리티', '기어링', '손익분기', '자본지지', 'ELW행사가', '전환비율', 'ELW만기일', '미결제약정', '미결제전일대비',
                             '이론가', '내재변동성', '델타', '감마', '쎄타', '베가', '로'],
+            # 가격급등락요청
+            'opt10019' : ['종목코드', '종목분류', '종목명', '전일대비기호', '전일대비', '등락률', '기준가', '현재가', '기준대비', '거래량', '급등률'],
+            # 거래량급증요청
+            'OPT10023' : ['종목코드', '종목명', '현재가', '전일대비기호', '전일대비', '등락률', '이전거래량', '현재거래량', '급증률'],
+            # 매물대집중요청
+            'OPT10025' : ['종목코드', '종목명', '현재가', '전일대비기호', '전일대비', '등락률', '현재거래량', '가격대시작', '가격대끝', '매물량', '매물비'],
             
             # Do not change the following 주문메세지 unless it's absolutely necessary.
             # In case you change them, change the 'all_msg' list in '_receive_msg' to match the change in the following
@@ -224,7 +230,7 @@ class Kiwoom(QAxWidget):
         self.timeset()
     
     def _time_event_handler(self):
-        self.savetimer.timeout.connect(self._timer_refresh_data)
+        self.savetimer.timeout.connect(self._time_count)
     
     def timeset(self, minute_interval=3):
         # millisec_interval = minute_interval * 60_000
@@ -232,47 +238,39 @@ class Kiwoom(QAxWidget):
         self.savetimer.setInterval(millisec_interval)
         self.savetimer.start()
         print(f'Auto chart data requesting interval is set for {minute_interval} minute(s)')        
-        print(f'Autosaving interval is set for {minute_interval*20} minute(s)')       
+        print(f'Autosaving interval is set for {minute_interval*20} minute(s)') 
+    
+    def _time_count(self):        
+        self.timer_count += 1
+        renew_list = {}
+        if (self.timer_count % 3) == 0:
+            renew_list['3분'] = self.min3
+        if (self.timer_count % 10) == 0:
+            renew_list['10분'] = self.min10          
+        if (self.timer_count % 30) == 0:           
+            renew_list['30분'] = self.min30
+        if (self.timer_count % 60) == 0:
+            renew_list['60분'] = self.min60
+            self._timersave_df()
+        self._timer_refresh_data(renew_list)           
 
-    def _timer_refresh_data(self):
+    def _timer_refresh_data(self, renew_list):
         dfname_counter = len(self.tr_data['charts'].keys())
         applylist = set()
-        self.timer_count += 1
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-
-        for df_name in self.tr_data['charts'].keys():
-            if '3분' in df_name and stock in df_name:
-                # print('df_name, self.tr_data[charts][df_name]: <- in _timer_refresh_data ', df_name, '\n', self.tr_data['charts'][df_name])
-                applylist.add(df_name)                
-                self.tr_data['charts'].pop(df_name)
-
-                break
         
         # df_name should be input to self._apply_strategies as a list form.
         # self.min3() returns df_name as a string, 'return stock+realtype+self.requesting_time_unit',
         # which means df_name here below have to be in a list form.
         # However, this is done by the last line of this method.
-        # self._apply_strategies(self.tr_data['charts'].keys())       
-        self.min3(stock)
- 
-        if (self.timer_count*3 % 30) == 0:
+        # self._apply_strategies(self.tr_data['charts'].keys())               
+        for renew, call in renew_list.items():
             for df_name in self.tr_data['charts'].keys():
-                if '30분' in df_name and stock in df_name:
-                    applylist.add(df_name)                    
+                if renew in df_name and stock in df_name:
+                    applylist.add(df_name)
                     self.tr_data['charts'].pop(df_name)
+                    call(stock)
                     break
-            self.min30(stock)
-
-        if (self.timer_count*3 % 60) == 0:
-            for df_name in self.tr_data['charts'].keys():
-                if '60분' in df_name and stock in df_name:
-                    applylist.add(df_name)              
-                    self.tr_data['charts'].pop(df_name) 
-                    break
-            self.min60(stock)
-            
-            self._timersave_df
-
         
         # PyQt's signal-slot can be completed nonsequentially. 
         # When the requested data is not received, 
@@ -285,18 +283,20 @@ class Kiwoom(QAxWidget):
         while True:
             if dfname_counter == len(self.tr_data['charts'].keys()):
                 break
-        print('Data updated at the set time interval')
-        # multiple timers can be activated simulanteously, 
-        # which is why _apply_strategies is at the bottom line of this method
-        # to reflect all the possible changes at once.       
-        self._apply_strategies(applylist)
-        print('Renewed data processing completed')
+      
+        if len(applylist):
+            print('Data updated at the set time interval')
+            # multiple timers can be activated simulanteously, 
+            # which is why _apply_strategies is at the bottom line of this method
+            # to reflect all the possible changes at once.       
+            self._apply_strategies(applylist)
+            print('Renewed data processing completed')
 
-        with sqlite3.connect('test_tr_data.db') as file:
-            for df_name in applylist:
-                self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')
-        
-        self._event_loop_exit('tr')
+            with sqlite3.connect('test_tr_data.db') as file:
+                for df_name in applylist:
+                    self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')            
+            
+            self._event_loop_exit('tr')
 
     def _timersave_df(self):
         print('\nAutosaving in progress...')
@@ -758,6 +758,8 @@ class Kiwoom(QAxWidget):
         '''df_name should be one string'''
         # print('df_name,  self.tr_data[charts][df_name].columns: in _floatize_df: ', df_name, self.tr_data['charts'][df_name].columns)
         self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].astype('string')
+        sort_col = ['체결시간'] if '분' in df_name else ['일자']
+        self.tr_data['charts'][df_name].sort_values(sort_col, ascending=True, inplace=True)
         for column in self.tr_data['charts'][df_name].columns:
             self.tr_data['charts'][df_name][column] = self.tr_data['charts'][df_name][column].str.strip('+-')
         self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].astype('float')
