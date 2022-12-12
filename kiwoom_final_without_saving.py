@@ -50,22 +50,28 @@ class Kiwoom(QAxWidget):
         self.account_num = 0
         self.remaining_data = True
         self.fidlist = []
-        self.tr_data = {'noncharts':{}, 'charts':{}}
+        self.tr_data = {'noncharts':{}, 'realcharts':{}, 'charts':{}}
         '''
         self.tr_data will contain all the data this code will generate. It has a complicated structure as following:
         
         self.tr_data = { 
         
-        'noncharts' 비차트관련 모든 수신데이터: 
+        'noncharts' 비차트관련 모든 수신데이터(주문체결, 잔고수신...):      -> no need to analyze
             {df_name named realtype i.e. 주식시세: data in dataframe},
             {df_name 잔고수신: dataframe},
             {df_name 주문메세지: dataframe},
             {df_name 예수금상세현황: dataframe},
+            {df_name 삼성전자_주문체결:dataframe},
             .......
         
+        All charts data below should be analyzed. That's why they're categorized separately.
         
-        'charts' 차트관련 모든 수신데이터: 
-            {df_name named stock+realtype+self.requesting_time_unit i.e. 삼성전자_주식분봉차트_30분봉: data in dataframe },
+        'realcharts' 실시간 차트 관련 모든 수신데이터 (주식체결, 주식시세):                 -> need to analyze (real time)
+            {df_name named stock+_+realtype i.e. 삼성전자_주식체결: data in dataframe},
+            {df_name 삼성전자_주식시세:dataframe},            
+        
+        'charts' 비실시간 차트관련 모든 수신데이터:                                        -> need to analyze (non real time)
+            {df_name named stock+_+realtype+_+self.requesting_time_unit i.e. 삼성전자_주식분봉차트_30분봉: data in dataframe },
             {df_name 삼성전자_주식일봉차트: dataframe},
             .......               
                 
@@ -246,6 +252,7 @@ class Kiwoom(QAxWidget):
         renew_list = {}
         if (self.timer_count % 3) == 0:
             renew_list['3분'] = self.min3
+            self._timersave_df()
         if (self.timer_count % 10) == 0:
             renew_list['10분'] = self.min10          
         if (self.timer_count % 30) == 0:           
@@ -308,15 +315,43 @@ class Kiwoom(QAxWidget):
 
     def _timersave_df(self):
         print('\nAutosaving in progress...')
+        skip = False
         for df_name, df in self.tr_data['noncharts'].items():       
             # The following statement makes db file names in _data_to_sql, which is different from df_name
             # df_name is same as tr_data['charts] or tr_data['noncharts'] keys, which is done in _df_generator
-            if '일자' in df.columns():
-                self._data_to_sql(df_name, df_name+'.db', df)
+            for column in df.columns:
+                if '일자' in column:
+                    self._data_to_sql(df_name, df_name+'.db', df)
+                    skip = True
+                    break
+            if skip:
+                continue
             else:
                 self._data_to_sql(df_name+'_'+datetime.today().strftime('%Y년%m월%d일'), df_name+'.db', df)
+                skip = False
             print(f'{df_name} is saved in {df_name}.db')            
         self.tr_data['noncharts'] = {}        
+
+        skip = False
+        for df_name, df in self.tr_data['realcharts'].items():       
+            # The following statement makes db file names in _data_to_sql, which is different from df_name
+            # df_name is same as tr_data['charts] or tr_data['noncharts'] keys, which is done in _df_generator
+            for column in df.columns:
+                if '일자' in column or '시간' in column:
+                    filename = df_name.split('_')[1]+'.db'
+                    self._data_to_sql(df_name, filename, df)
+                    print(f'{df_name} is saved in {filename}')            
+                    skip = True
+                    break
+            if skip:
+                continue    
+            else:
+                self._data_to_sql(df_name+'_'+datetime.today().strftime('%Y년%m월%d일'), df_name+'.db', df)
+                print(f'{df_name} is saved in {df_name}.db')       
+                skip = False
+     
+        self.tr_data['realcharts'] = {}    
+            
         minute_interval = int(self.savetimer.interval()/60_000)
         print(f'\nAutosaving for every {minute_interval} minute completed.')
         
@@ -357,9 +392,6 @@ class Kiwoom(QAxWidget):
         # 체결잔고, 잔고변경, 주문메세지 will each have one same filename with multiple table names for additional data to save
         # They also have df_name in the form of : realtype
 
-        # if realtype in ['체결잔고', '잔고변경', '주문메세지', '관심종목']:        
-        #     df_name = realtype
-
         # 주식시세, 주식체결, 주문체결, 주식일봉차트, 주식틱차트, 관심종목 will have df_name consising of
         # stock_realtype_timeunit : i.e. 삼성전자_주식일봉차트_30분봉
         stock = self.all_stocks['tickerkeys'][self.stockcode]
@@ -371,13 +403,24 @@ class Kiwoom(QAxWidget):
                 self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].append(pd.DataFrame(data), ignore_index=True)
             else:
                 self.tr_data['charts'][df_name] = pd.DataFrame(data)
-
+                
+        # 주식일봉차트, 주식주봉차트, 주식월봉차트 are non real time data
         elif realtype in ['주식일봉차트', '주식주봉차트', '주식월봉차트']:
             df_name = stock+'_'+realtype
             if df_name in self.tr_data['charts'].keys():
                 self.tr_data['charts'][df_name] = self.tr_data['charts'][df_name].append(pd.DataFrame(data), ignore_index=True)
             else:
-                self.tr_data['charts'][df_name] = pd.DataFrame(data)
+                self.tr_data['charts'][df_name] = pd.DataFrame(data)        
+                
+        # 주식체결, 주식시세 are real time data.         
+        elif realtype in ['주식체결', '주식시세']:
+            df_name = stock+'_'+realtype
+            if df_name in self.tr_data['realcharts'].keys():
+                self.tr_data['realcharts'][df_name] = self.tr_data['realcharts'][df_name].append(pd.DataFrame(data), ignore_index=True)
+            else:
+                self.tr_data['realcharts'][df_name] = pd.DataFrame(data)    
+        
+        # 주문체결 is real time but not chart data. The others are mostly non real time and non chart data.
         else:
             df_name = realtype
             if df_name in self.tr_data['noncharts'].keys():
@@ -414,8 +457,31 @@ class Kiwoom(QAxWidget):
         self.dynamicCall('SetInputValue(QString, QString)', tr_name, tr_value)
     
     def set_real_data(self, scrno, codelist, fidlist, opttype):
+        '''
+        SetRealReg(
+          BSTR strScreenNo,   // 화면번호
+          BSTR strCodeList,   // 종목코드 리스트
+          BSTR strFidList,  // 실시간 FID리스트
+          BSTR strOptType   // 실시간 등록 타입, 0또는 1
+          )
+          
+          종목코드와 FID 리스트를 이용해서 실시간 시세를 등록하는 함수입니다.
+          한번에 등록가능한 종목과 FID갯수는 100종목, 100개 입니다.
+          실시간 등록타입을 0으로 설정하면 등록한 종목들은 실시간 해지되고 등록한 종목만 실시간 시세가 등록됩니다.
+          실시간 등록타입을 1로 설정하면 먼저 등록한 종목들과 함께 실시간 시세가 등록됩니다
+          
+          ------------------------------------------------------------------------------------------------------------------------------------
+          
+          [실시간 시세등록 예시]
+          OpenAPI.SetRealReg(_T("0150"), _T("039490"), _T("9001;302;10;11;25;12;13"), "0");  // 039490종목만 실시간 등록
+          OpenAPI.SetRealReg(_T("0150"), _T("000660"), _T("9001;302;10;11;25;12;13"), "1");  // 000660 종목을 실시간 추가등록
+          
+          -------------------------------------------------------------------------------------------------------------------------
+        '''
+            
         for idx, code in enumerate(codelist):
-            print(f'\n\nrequesting data of {code}')
+            stock = self.all_stocks['stockkeys'][code]
+            print(f'requesting data of {stock}')
             self.dynamicCall('SetRealReg(QString, QString, QString, QString)', f'00{idx+100}', code, fidlist, opttype)
                 
         self._event_loop_exec('real')
@@ -424,7 +490,7 @@ class Kiwoom(QAxWidget):
         #SendOrder() takes its argument as a list form. Put all the input values in []
         self.dynamicCall('SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)', [rqname, scrno, accno, ordertype, code, qty, price, hogagb, orgorderno])
         
-        self._event_loop_exec('order')
+        # self._event_loop_exec('order')
     
     def comm_rq_data(self, rqname, trcode, prenext, scrno):
         self.dynamicCall('CommRQData(QString, QString, int, QString)', rqname, trcode, prenext, scrno)
@@ -472,6 +538,17 @@ class Kiwoom(QAxWidget):
         # 주식관심종목정보요청
         elif rqname == 'OPTKWFID':
             self._optkwfid(rqname, trcode)
+            
+        
+        # 가격급등락요청
+        elif rqname == 'OPT10019':
+            self._opt10019(rqname, trcode)
+        #거래량급증요청
+        elif rqname == 'OPT10023':
+            self._opt10023(rqname, trcode)
+        #매물대집중요청
+        elif rqname == 'OPT10025':
+            self._opt10025(rqname, trcode)
 
        
         # 계좌평가잔고내역요청
@@ -563,7 +640,8 @@ class Kiwoom(QAxWidget):
             add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
         #the second argument, stockcode, is assigned '', 
         #which makes _df_generator df_name without stock name in it.
-        self._df_generator('체결잔고', add)
+        df_name = self._df_generator('체결잔고', add)
+        print(f'{df_name} 주문체결/체결잔고 내용수신')
 
     def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
         # print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
@@ -577,8 +655,10 @@ class Kiwoom(QAxWidget):
         add = {}
         for fid in fidlist_checked:
             add[self.fids_dict['신용잔고'][int(fid)]] = [self._get_chejan_data(fid)]
-        self._df_generator('잔고변경', add) 
+        df_name = self._df_generator('잔고변경', add) 
+        print(f'{df_name} 신용잔고/잔고변경 내용수신')
     
+    # 실시간 주식시세요청 결과처리
     def _realtype_stock_status(self, code):
         add= {}
         fidlist = self.fids_dict['주식시세']
@@ -587,8 +667,10 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
         self.stockcode = code
-        self._df_generator('주식시세', add)
+        df_name = self._df_generator('주식시세', add)
+        print(f'{df_name} 신용잔고/잔고변경 내용수신')        
 
+    # 실시간 주식체결 결과처리 (시장전체체결현황, NOT 내 주문체결결과)
     def _realtype_stock_made(self, code): 
         add= {}
         fidlist = self.fids_dict['주식체결']
@@ -597,8 +679,12 @@ class Kiwoom(QAxWidget):
             add[fidname] = [self._get_comm_real_data(code, fid)]
         
         self.stockcode = code       
+        stock = self.all_stocks['tickerkeys'][code]
+        # Do not print 주식체결 결과처리. This has too much data to print. Save them at a set time interval at a db file instead.
         self._df_generator('주식체결', add)
  
+
+    # 실시간 주문체결 결과처리 (내 주문체결결과)
     def _realtype_order_made(self, code):
         add= {}
         fidlist = self.fids_dict['주문체결']
@@ -606,9 +692,12 @@ class Kiwoom(QAxWidget):
         for fid, fidname in fidlist.items():
             add[fidname] = [self._get_comm_real_data(code, fid)]
 
-        self.stockcode = code        
-        self._df_generator('주문체결', add)   
-    
+        self.stockcode = code       
+        stock = self.all_stocks['tickerkeys'][code]
+        df_name = self._df_generator('주문체결', add)   
+        print(f'{stock} 실시간 주문체결 내용수신 (내 주문내역)')        
+
+            
     def _get_comm_real_data(self, code, fid):
         return self.dynamicCall('GetCommRealData(QString, int)', code, fid)        
 
@@ -704,8 +793,47 @@ class Kiwoom(QAxWidget):
             df_name = self._df_generator('관심종목', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'{stock} 관심종목 정보 {data_cnt}건 수신')  
-
-    # 계좌평가잔고내역요청
+    
+    # 가격급등락요청 결과처리
+    def _opt10019(self, rqname, trcode):
+        df_name = ''    
+        data_cnt = self._get_repeat_cont(trcode, '가격급등락')
+        add= {}
+        for idx in range(data_cnt):
+            for key in self.fids_dict['opt10019']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
+            self.stockcode = add['종목코드'][0]
+            df_name = self._df_generator('가격급등락', add)
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        print(f'{stock} 가격급등락 정보 {data_cnt}건 수신')  
+    
+    # 거래량급증요청 결과처리
+    def _opt10023(self, rqname, trcode):
+        df_name = ''    
+        data_cnt = self._get_repeat_cont(trcode, '거래량급증')
+        add= {}
+        for idx in range(data_cnt):
+            for key in self.fids_dict['OPT10023']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
+            self.stockcode = add['종목코드'][0]
+            df_name = self._df_generator('거래량급증', add)
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        print(f'{stock} 거래량급증 정보 {data_cnt}건 수신')  
+    
+    # 매물대집중요청 결과처리
+    def _opt10025(self, rqname, trcode):
+        df_name = ''    
+        data_cnt = self._get_repeat_cont(trcode, '매물대집중')
+        add= {}
+        for idx in range(data_cnt):
+            for key in self.fids_dict['OPT10025']:
+                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
+            self.stockcode = add['종목코드'][0]
+            df_name = self._df_generator('매물대집중', add)
+        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        print(f'{stock} 매물대집중 정보 {data_cnt}건 수신')          
+    
+    # 계좌평가잔고내역요청 결과처리
     def _opw00018(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '계좌평가잔고내역')
         add = {}
@@ -715,7 +843,7 @@ class Kiwoom(QAxWidget):
             self._df_generator('계좌평가잔고내역', add)
         print(f'계좌평가잔고내역 수신\n', self.tr_data['noncharts']['계좌평가잔고내역'])    
     
-    # 예수금상세현황요청
+    # 예수금상세현황요청 결과처리
     def _opw00001(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '예수금상세현황')
         add = {}
@@ -725,7 +853,7 @@ class Kiwoom(QAxWidget):
             self._df_generator('예수금상세현황', add)
         print(f'예수금상세현황 수신\n', self.tr_data['noncharts']['예수금상세현황'])  
     
-    # 계좌수익율요청
+    # 계좌수익율요청 결과처리
     def _opt10085(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '계좌수익율')
         add = {}
@@ -735,7 +863,7 @@ class Kiwoom(QAxWidget):
             self._df_generator('계좌수익율', add)
         print(f'계좌수익율 수신\n', self.tr_data['noncharts']['계좌수익율'])        
 
-    # 당일실현손익상세요청
+    # 당일실현손익상세요청 결과처리
     def _opt10077(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '당일실현손익상세')
         add = {}
@@ -745,7 +873,7 @@ class Kiwoom(QAxWidget):
             self._df_generator('당일실현손익상세', add)
         print(f'당일실현손익상세 수신\n', self.tr_data['noncharts']['당일실현손익상세'])      
 
-    # 체결요청
+    # 체결요청 결과처리
     def _opt10076(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '체결')
         add = {}
@@ -755,7 +883,7 @@ class Kiwoom(QAxWidget):
             self._df_generator('체결', add)
         print(f'체결 수신\n', self.tr_data['charts']['체결'])      
 
-    # 미체결요청
+    # 미체결요청 결과처리
     def _opt10075(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '미체결')
         add = {}
@@ -827,6 +955,51 @@ class Kiwoom(QAxWidget):
         self.tr_data['charts'][df_name]['%K'] = (self.tr_data['charts'][df_name]['현재가'] - self.tr_data['charts'][df_name]['K저가']) * 100 / (self.tr_data['charts'][df_name]['K고가'] - self.tr_data['charts'][df_name]['K저가'])
         self.tr_data['charts'][df_name]['%D'] = self.tr_data['charts'][df_name]['%K'].rolling(d).mean()      
 
+    def _find_buy_sell(self):
+        buy_conditions = {}
+        sell_conditions = {}
+        stocks = []
+        for df_name in self.tr_data['charts'].keys():
+            stock = df_name.split('_')[0]
+            stocks.append(stock)
+            buy_conditions[stock] = {}
+            sell_conditions[stock] = {}
+        for stock in stocks:
+            for condition in ['MA', 'Bollinger']:
+                buy_conditions[stock][condition] = True
+                sell_conditions[stock][condition] = True
+        for df_name in self.tr_data['charts'].keys():
+            if '월봉' in df_name or '주봉' in df_name or '일봉' in df_name or '60분' in df_name or '30분' in df_name or '10분' in df_name or '3분' in df_name:
+                for idx in range(-60, 0):
+                    if self.tr_data['charts'][df_name]['MA60'].values[idx] < self.tr_data['charts'][df_name]['MA20'].values[idx] < self.tr_data['charts'][df_name]['MA10'].values[idx] < self.tr_data['charts'][df_name]['MA5'].values[idx] < self.tr_data['charts'][df_name]['MA3'].values[idx]:
+                        stock = self.tr_data['charts'][df_name].split('_')[0]
+                        buy_conditions[stock]['MA'] = buy_conditions[stock]['MA'] and True
+                        sell_conditions[stock]['MA'] = False
+                    else:
+                        stock = self.tr_data['charts'][df_name].split('_')[0]                        
+                        buy_conditions[stock]['MA'] = False
+                        sell_conditions[stock]['MA'] = sell_conditions[stock]['MA'] and True
+            if '60분' in df_name or '30분' in df_name or '10분' in df_name or '3분' in df_name:                
+                if self.tr_data['charts'][df_name]['PB'].values[-1] < 0.2 and self.tr_data['charts'][df_name]['SQZ'].values[-1] < 10:
+                    stock = self.tr_data['charts'][df_name].split('_')[0]
+                    buy_conditions[stock]['Bollinger'] = True
+                    sell_conditions[stock]['Bollinger'] = False
+                elif self.tr_data['charts'][df_name]['PB'].values[-1] > 0.8:
+                    stock = self.tr_data['charts'][df_name].split('_')[0]
+                    buy_conditions[stock]['Bollinger'] = False
+                    sell_conditions[stock]['Bollinger'] = True
+        
+        buy = []
+        for stock, ismet in buy_conditions.items():
+            if all(ismet.values()):
+                buy.append(stock)
+        sell = []
+        for stock, ismet in sell_conditions.items():
+            if all(ismet.values()):
+                sell.append(stock)
+
+        return buy, sell
+                        
       
     # *inputs take multiple functions to use and a list form of input values in order.
     # The functions will be inputs[:-1] and input values will be imputs[-1]
@@ -837,8 +1010,7 @@ class Kiwoom(QAxWidget):
             for func in inputs[:-1]:
                 for input in inputs[-1]:
                     func(input)
-        _fmap(self._floatize_df, self._mas, self._bollinger, self._RSI, self._MFI, self._stochastic, df_names)
-        
+        _fmap(self._floatize_df, self._mas, self._bollinger, self._RSI, self._MFI, self._stochastic, df_names)       
     
     def _chart_request(self, stock, date_or_tick, pricetype=1):
         stockcode = self.all_stocks['stockkeys'][stock]
@@ -920,6 +1092,16 @@ class Kiwoom(QAxWidget):
         '''  
         self.requesting_time_unit = str(ticktime)+'틱'
         self._chart_request(stock, ticktime, pricetype)
+
+    # def request_real_data(self, codelist, fidlist, opttype='1', scrno='0100'):            
+    #     self.set_real_data(scrno, codelist, fidlist, opttype)
+        
+    def request_real_chart(self, *stocks):
+        codelist = [self.all_stocks['stockkeys'][stock] for stock in stocks]
+        fidlist = [fid for fid in self.fids_dict['주식체결'].keys()]
+        self.set_real_data('0100', codelist, fidlist, 1)
+    
+    
     
     # Simplified chart request functions. Return df_name
     def min3(self, stock):
@@ -940,6 +1122,14 @@ class Kiwoom(QAxWidget):
     def onestop_stock(self, *stocks):
         chart_funcs = [self.min3, self.min10, self.min30, self.min60, self.daily, self.weekly, self.monthly]
         
+        # When onestop_stock gets inputs from other functions, 
+        # such as _analyze_volitilities(), with a tuple return value
+        # it has to be indexed and peel out the outermost bracket as follows.
+        if type(stocks[0]) != str:
+            stocks = stocks[0]
+        
+        print('stocks in onestop_stocks: ', stocks)
+        
         for stock in stocks:
             self.following_stocks.add(stock)
         
@@ -948,21 +1138,21 @@ class Kiwoom(QAxWidget):
                 chart_func(stock)
             print('\n')
         
-        while True:
+        while True:           
             if len(self.tr_data['charts'].keys()) == len(chart_funcs)*len(stocks):
                 break          
 
         self._apply_strategies(self.tr_data['charts'].keys())
-        print('All data processed to apply strategies\n')
-        
+        print('All data processed to apply strategies\n')                
 
-        with sqlite3.connect('test_tr_data.db') as file:
-            for df_name in self.tr_data['charts'].keys():
-                self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')
-            
+        # with sqlite3.connect('test_tr_data.db') as file:
+        #     for df_name in self.tr_data['charts'].keys():
+        #         self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')   
+        
+        # self.request_real_chart(stocks)   
         
         self._event_loop_exec('tr')
-        
+
     def request_mass_data(self, *stocklist, prenext=0):
         code_list = ''
         stocks = [] 
@@ -1003,9 +1193,97 @@ class Kiwoom(QAxWidget):
         # print('\n\nRequesting the real time data of the following tickers: ', code_list)
         self.comm_kw_rq_data(code_list, prenext, codecnt, typeflag=0, rqname='OPTKWFID', scrno='0005')
             
-    def request_real_data(self, codelist, fidlist, opttype='1', scrno='0100'):            
-        self.set_real_data(scrno, codelist, fidlist, opttype)
+
     
+    # 가격급등락요청
+    def request_sudden_price_change(self, market='000', updown='1', timeunit='1', dayormin='1', volume='00000', 
+                                    stockcategory='1', creditcategory='0', pricecategory='0', includeendprice='1'):
+        '''	
+        시장구분 = 000:전체, 001:코스피, 101:코스닥, 201:코스피200
+        등락구분 = 1:급등, 2:급락
+        시간구분 = 1:분전, 2:일전
+        시간 = 분 혹은 일입력
+        거래량구분 = 00000:전체조회, 00010:만주이상, 00050:5만주이상, 00100:10만주이상, 00150:15만주이상, 00200:20만주이상, 00300:30만주이상, 00500:50만주이상, 01000:백만주이상
+        종목조건 = 0:전체조회,1:관리종목제외, 3:우선주제외, 5:증100제외, 6:증100만보기, 7:증40만보기, 8:증30만보기
+        가격조건 = 0:전체조회, 1:1천원미만, 2:1천원~2천원, 3:2천원~3천원, 4:5천원~1만원, 5:1만원이상, 8:1천원이상
+        상하한포함 = 0:미포함, 1:포함
+        '''
+        inputs = {'시장구분':market, '등락구분':updown, '시간구분':timeunit, '시간':dayormin, '거래량구분':volume, 
+                  '종목조건':stockcategory, '신용조건':creditcategory, '가격조건':pricecategory, '상하한가포함':includeendprice}
+        for trname, trcode in inputs.items():
+            self.set_input_value(trname, trcode)
+        self.comm_rq_data('OPT10019', 'opt10019', 0, '0050')   
+    
+    #거래량급증요청
+    def request_sudden_volume_change(self, market='000', upcategory='2', timeunit='1', volumecategory='5', 
+                                     minute='3', stockcategory='0', pricecategory='0'):
+        '''
+       	시장구분 = 000:전체, 001:코스피, 101:코스닥
+        정렬구분 = 1:급증량, 2:급증률
+        시간구분 = 1:분, 2:전일
+        거래량구분 = 5:5천주이상, 10:만주이상, 50:5만주이상, 100:10만주이상, 200:20만주이상, 300:30만주이상, 500:50만주이상, 1000:백만주이상
+        시간 = 분 입력
+        종목조건 = 0:전체조회, 1:관리종목제외, 5:증100제외, 6:증100만보기, 7:증40만보기, 8:증30만보기, 9:증20만보기
+        가격구분 = 0:전체조회, 2:5만원이상, 5:1만원이상, 6:5천원이상, 8:1천원이상, 9:10만원이상
+        '''
+        inputs = {'시장구분':market, '정렬구분':upcategory, '시간구분':timeunit, '거래량구분':volumecategory, 
+                  '시간':minute, '종목조건':stockcategory, '가격구분':pricecategory}
+        for trname, trcode in inputs.items():
+            self.set_input_value(trname, trcode)
+        self.comm_rq_data('OPT10023', 'OPT10023', 0, '0051')
+  
+    # 매물대집중요청    
+    def request_volume_profile_point_of_control(self, market='000', poc_ratio='10', includecurrentprice='1', number='5', period='50'):
+        '''
+        시장구분 = 000:전체, 001:코스피, 101:코스닥
+        매물집중비율 = 0~100 입력
+        현재가진입 = 0:현재가 매물대 집입 포함안함, 1:현재가 매물대 집입포함
+        매물대수 = 숫자입력
+        주기구분 = 50:50일, 100:100일, 150:150일, 200:200일, 250:250일, 300:300일
+        '''
+        inputs = {'시장구분':market, '매물대집중':poc_ratio, '현재가진입':includecurrentprice, '매물대수':number, '주기구분':period}
+        for trname, trcode in inputs.items():
+            self.set_input_value(trname, trcode)
+        self.comm_rq_data('OPT10025', 'OPT10025', 0, '0052')
+    
+    # Simplified functions for sudden chages in prices, volume, and volume profile (point of control)    
+    def priceup(self, dayormin='1', volume='00000'):
+        self.request_sudden_price_change('000', '1', '1', dayormin, volume) 
+    def pricedown(self, dayormin='1', volume='00000'):
+        self.request_sudden_price_change('000', '2', '1', dayormin, volume)          
+    def volumeup(self, minute='3'):
+        self.request_sudden_volume_change('000', '2', '1', '5', minute)
+    def poc(self, number='5', poc_ratio='10', period='50'):
+        self.request_volume_profile_point_of_control('000', poc_ratio, '1', number, period)
+    
+    def _find_volitilities(self):
+        self.priceup()
+        # self.pricedown()
+        self.volumeup()
+        self.poc()
+        
+    def _analyze_volitilities(self):
+        analyzees = ['가격급등락', '거래량급증', '매물대집중']
+        stocks = set()
+        print('df_names in _analyze_volitilities: ', self.tr_data['noncharts'].keys())
+        for df_name in self.tr_data['noncharts'].keys():
+            for analyzee in analyzees:
+                if analyzee in df_name:
+                    stock = df_name.split('_')[0]
+                    stocks.add(stock)        
+        return stocks
+    
+    def volitility_preference(self):
+        self._find_volitilities()
+        stocks = self._analyze_volitilities()
+        self.onestop_stock(stocks)
+        self._apply_strategies()
+        # orders = self._find_buy_sell()
+        # for order in orders[0]:
+        #     self.buy(order)
+        # for order in orders[1]:
+        #     self.sell(order)                  
+       
     def make_order(self, stock, price, qty, hogagb='00', ordertype=1, orderno=' '):
         '''
         stock: 주식이름
@@ -1023,6 +1301,13 @@ class Kiwoom(QAxWidget):
         # print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
         print(f'{stock} {price}원 {qty}주 {order} 신청')
         self.set_order('testuser', '0006', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
+    
+    def buy(self, stock, price, qty=1):
+        self.make_order(stock, price, qty)
+    def sell(self, stock, price, qty=1):
+        self.make_order(stock, price, qty)
+    def cancel(self, stock, price, qty, orderno):
+        self.make_order(stock, price, qty, '00', 1, orderno)
  
                         
 app = QApplication(sys.argv)
@@ -1057,4 +1342,6 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # daily('삼성전자')
 # min3('삼성전자')
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
-kiwoom.onestop_stock('현대차', '삼성전자', 'LG에너지솔루션')
+# kiwoom.request_real_chart('현대차', '삼성전자', 'LG에너지솔루션')
+# kiwoom.onestop_stock('현대차', '삼성전자', 'LG에너지솔루션')
+kiwoom.volitility_preference()
