@@ -50,7 +50,7 @@ class Kiwoom(QAxWidget):
         self.account_num = 0
         self.remaining_data = True
         self.fidlist = []
-        self.tr_data = {'noncharts':{}, 'realcharts':{}, 'charts':{}}
+        self.tr_data = {'noncharts':{}, 'volitility':{}, 'realcharts':{}, 'charts':{}}
         '''
         self.tr_data will contain all the data this code will generate. It has a complicated structure as following:
         
@@ -65,7 +65,12 @@ class Kiwoom(QAxWidget):
             .......
         
         All charts data below should be analyzed. That's why they're categorized separately.
-        
+
+        'volitility' 실시간 변동성관련 모든 수신데이터('가격급등락', '거래량급증', '매물대집중'): -> need to analyze (real time)
+            {df_name named stock+_+realtype i.e. 삼성전자_가격급등락: data in dataframe},
+            {df_name 삼성전자_거래량급증: dataframe},
+            .......
+
         'realcharts' 실시간 차트 관련 모든 수신데이터 (주식체결, 주식시세):                 -> need to analyze (real time)
             {df_name named stock+_+realtype i.e. 삼성전자_주식체결: data in dataframe},
             {df_name 삼성전자_주식시세:dataframe},            
@@ -240,8 +245,8 @@ class Kiwoom(QAxWidget):
         self.savetimer.timeout.connect(self._time_count)
     
     def timeset(self, minute_interval=3):
-        # millisec_interval = minute_interval * 60_000
-        millisec_interval = 0.3 * 60_000
+        millisec_interval = minute_interval * 60_000
+        # millisec_interval = 0.3 * 60_000
         self.savetimer.setInterval(millisec_interval)
         self.savetimer.start()
         print(f'Auto chart data requesting interval is set for {minute_interval} minute(s)')        
@@ -252,7 +257,6 @@ class Kiwoom(QAxWidget):
         renew_list = {}
         if (self.timer_count % 3) == 0:
             renew_list['3분'] = self.min3
-            self._timersave_df()
         if (self.timer_count % 10) == 0:
             renew_list['10분'] = self.min10          
         if (self.timer_count % 30) == 0:           
@@ -265,8 +269,7 @@ class Kiwoom(QAxWidget):
     def _timer_refresh_data(self, renew_list):
         dfname_counter = len(self.tr_data['charts'].keys())
         applylist = set()
-        # stock = self.all_stocks['tickerkeys'][self.stockcode]
-        
+
         # df_name should be input to self._apply_strategies as a list form.
         # self.min3() returns df_name as a string, 'return stock+realtype+self.requesting_time_unit',
         # which means df_name here below have to be in a list form.
@@ -325,6 +328,7 @@ class Kiwoom(QAxWidget):
                     skip = True
                     break
             if skip:
+                skip = False
                 continue
             else:
                 self._data_to_sql(df_name+'_'+datetime.today().strftime('%Y년%m월%d일'), df_name+'.db', df)
@@ -332,25 +336,25 @@ class Kiwoom(QAxWidget):
             print(f'{df_name} is saved in {df_name}.db')            
         self.tr_data['noncharts'] = {}        
 
-        skip = False
-        for df_name, df in self.tr_data['realcharts'].items():       
-            # The following statement makes db file names in _data_to_sql, which is different from df_name
-            # df_name is same as tr_data['charts] or tr_data['noncharts'] keys, which is done in _df_generator
-            for column in df.columns:
-                if '일자' in column or '시간' in column:
-                    filename = df_name.split('_')[1]+'.db'
-                    self._data_to_sql(df_name, filename, df)
-                    print(f'{df_name} is saved in {filename}')            
-                    skip = True
-                    break
-            if skip:
-                continue    
-            else:
-                self._data_to_sql(df_name+'_'+datetime.today().strftime('%Y년%m월%d일'), df_name+'.db', df)
-                print(f'{df_name} is saved in {df_name}.db')       
-                skip = False
-     
-        self.tr_data['realcharts'] = {}    
+        # skip = False
+        # for df_name, df in self.tr_data['realcharts'].items():       
+        #     # The following statement makes db file names in _data_to_sql, which is different from df_name
+        #     # df_name is same as tr_data['charts] or tr_data['noncharts'] keys, which is done in _df_generator
+        #     for column in df.columns:
+        #         if '일자' in column or '시간' in column:
+        #             filename = df_name.split('_')[1]+'.db'
+        #             self._data_to_sql(df_name, filename, df)
+        #             print(f'{df_name} is saved in {filename}')            
+        #             skip = True
+        #             break
+        #     if skip:
+        #         skip = False
+        #         continue    
+        #     else:
+        #         self._data_to_sql(df_name+'_'+datetime.today().strftime('%Y년%m월%d일'), df_name+'.db', df)
+        #         print(f'{df_name} is saved in {df_name}.db')       
+        #         skip = False     
+        # self.tr_data['realcharts'] = {}    
             
         minute_interval = int(self.savetimer.interval()/60_000)
         print(f'\nAutosaving for every {minute_interval} minute completed.')
@@ -387,10 +391,23 @@ class Kiwoom(QAxWidget):
         '''
         realtype: 주식시세, 주식체결, 주문체결, 체결잔고, 잔고변경, 주문메세지, 주식일봉차트, 주식틱차트, 관심종목
         data: dataframe which contains data to save
+        _df_generator categories transaction data into 4 categories.
+        Multiple categories make it easy to process same tasks for data with similar charateristics
+        i.e. self.tr_data['charts'].keys() will generate all the df_names for charts to analyze.
+        This will remove necessity to put if-conditions to screen which df_name and its dataframe
+        to calculate Bollinger data and MA data, etc within the same category.
+        self.tr_data = {
+            'noncharts'     : {dataframe},  -> 잔고변경, 체결잔고, 주문체결 Data to save. Nonreal time. Mainly orders and balance related
+            'volitility'    : {dataframe},  -> 가격급등락, 거래량급증, 매물대집중 -> Mostly real time. 
+            'realcharts'    : {datafrmae},  -> 주식체결, 주식시세 -> real time data the server passes once you made a request for chart data below.
+            'charts'        : {dataframe}   -> 주식틱차트, 분봉차트, 일봉차트, 주봉차트, 월봉차트 -> data to analyize for strategies
+        }
         '''        
         # (stock name +) realtype (+ a time unit) = df_name = tr_data['charts'] or tr['noncharts'] keys
         # 체결잔고, 잔고변경, 주문메세지 will each have one same filename with multiple table names for additional data to save
         # They also have df_name in the form of : realtype
+
+        
 
         # 주식시세, 주식체결, 주문체결, 주식일봉차트, 주식틱차트, 관심종목 will have df_name consising of
         # stock_realtype_timeunit : i.e. 삼성전자_주식일봉차트_30분봉
@@ -419,8 +436,19 @@ class Kiwoom(QAxWidget):
                 self.tr_data['realcharts'][df_name] = self.tr_data['realcharts'][df_name].append(pd.DataFrame(data), ignore_index=True)
             else:
                 self.tr_data['realcharts'][df_name] = pd.DataFrame(data)    
+
+        # '가격급등락', '거래량급증', '매물대집중' are real time data.                       
+        elif realtype in ['가격급등락', '거래량급증', '매물대집중']:
+            df_name = realtype
+            if df_name in self.tr_data['volitility'].keys():
+                self.tr_data['volitility'][df_name] = self.tr_data['volitility'][df_name].append(pd.DataFrame(data), ignore_index=True)
+            else:
+                self.tr_data['volitility'][df_name] = pd.DataFrame(data)    
         
-        # 주문체결 is real time but not chart data. The others are mostly non real time and non chart data.
+        # 주문체결 is real time but not chart data, 
+        # which falls under this category for convenience to analyze the other data at once.
+        # The others are mostly non real time and non chart data.
+        # 잔고변경, 체결잔고 are most typical data for this category
         else:
             df_name = realtype
             if df_name in self.tr_data['noncharts'].keys():
@@ -615,9 +643,10 @@ class Kiwoom(QAxWidget):
         fidlist example : 9201;9203;9205;9001;912;913;302;900;901;902;903;904;905;906;907;908;909;910
         itemcnt for the above fidlist exmaple will be its number, 18    
         '''   
-        # print('gubun, type(gubun): -> in _receive_chejan_data\n', gubun, type(gubun))
+        # 구분 0: 접수 및 체결
         if gubun == '0': #order placed and made 
             self._real_chejan_placed_made(itemcnt, fidlist)
+        # 구분 1: 국내주식 잔고변경
         elif gubun == '1':
             self._domestic_balance_change(itemcnt, fidlist)
         
@@ -626,6 +655,7 @@ class Kiwoom(QAxWidget):
         except AttributeError:
             pass
 
+    # 접수 및 체결 수신내용처리
     def _real_chejan_placed_made(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
         # print('\nitemcnt, fidlist: -> in_real_chejan_placed_made\n', itemcnt, fidlist)
         print('order placed and made')
@@ -641,8 +671,9 @@ class Kiwoom(QAxWidget):
         #the second argument, stockcode, is assigned '', 
         #which makes _df_generator df_name without stock name in it.
         df_name = self._df_generator('체결잔고', add)
-        print(f'{df_name} 주문체결/체결잔고 내용수신')
+        print(f'주문체결/체결잔고 내용수신')
 
+    # 국내주식 잔고변경 수신내용처리
     def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
         # print('\nitemcnt, fidlist: -> in _domestic_balance_chanage\n', itemcnt, fidlist)
         print('change in balance happened')
@@ -656,7 +687,7 @@ class Kiwoom(QAxWidget):
         for fid in fidlist_checked:
             add[self.fids_dict['신용잔고'][int(fid)]] = [self._get_chejan_data(fid)]
         df_name = self._df_generator('잔고변경', add) 
-        print(f'{df_name} 신용잔고/잔고변경 내용수신')
+        print(f'신용잔고/잔고변경 내용수신')
     
     # 실시간 주식시세요청 결과처리
     def _realtype_stock_status(self, code):
@@ -668,7 +699,7 @@ class Kiwoom(QAxWidget):
         
         self.stockcode = code
         df_name = self._df_generator('주식시세', add)
-        print(f'{df_name} 신용잔고/잔고변경 내용수신')        
+        print(f'실시간 주식시세 내용수신')        
 
     # 실시간 주식체결 결과처리 (시장전체체결현황, NOT 내 주문체결결과)
     def _realtype_stock_made(self, code): 
@@ -695,7 +726,7 @@ class Kiwoom(QAxWidget):
         self.stockcode = code       
         stock = self.all_stocks['tickerkeys'][code]
         df_name = self._df_generator('주문체결', add)   
-        print(f'{stock} 실시간 주문체결 내용수신 (내 주문내역)')        
+        print(f'실시간 주문체결 내용수신 (내 주문내역)')        
 
             
     def _get_comm_real_data(self, code, fid):
@@ -805,7 +836,7 @@ class Kiwoom(QAxWidget):
             self.stockcode = add['종목코드'][0]
             df_name = self._df_generator('가격급등락', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-        print(f'{stock} 가격급등락 정보 {data_cnt}건 수신')  
+        print(f'가격급등락 정보 {data_cnt}건 수신')  
     
     # 거래량급증요청 결과처리
     def _opt10023(self, rqname, trcode):
@@ -818,7 +849,7 @@ class Kiwoom(QAxWidget):
             self.stockcode = add['종목코드'][0]
             df_name = self._df_generator('거래량급증', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-        print(f'{stock} 거래량급증 정보 {data_cnt}건 수신')  
+        print(f'거래량급증 정보 {data_cnt}건 수신')  
     
     # 매물대집중요청 결과처리
     def _opt10025(self, rqname, trcode):
@@ -831,7 +862,7 @@ class Kiwoom(QAxWidget):
             self.stockcode = add['종목코드'][0]
             df_name = self._df_generator('매물대집중', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
-        print(f'{stock} 매물대집중 정보 {data_cnt}건 수신')          
+        print(f'매물대집중 정보 {data_cnt}건 수신')          
     
     # 계좌평가잔고내역요청 결과처리
     def _opw00018(self, rqname, trcode):
@@ -956,18 +987,23 @@ class Kiwoom(QAxWidget):
         self.tr_data['charts'][df_name]['%D'] = self.tr_data['charts'][df_name]['%K'].rolling(d).mean()      
 
     def _find_buy_sell(self):
+        orders = {'buy':[], 'sell':[]}
         buy_conditions = {}
         sell_conditions = {}
         stocks = []
+        # initial formatting in the first layer for dictionaries , buy_conditions and sell_conditions
         for df_name in self.tr_data['charts'].keys():
             stock = df_name.split('_')[0]
             stocks.append(stock)
             buy_conditions[stock] = {}
             sell_conditions[stock] = {}
+
+        # initial formatting in the second layer for dictionaries , buy_conditions and sell_conditions        
         for stock in stocks:
             for condition in ['MA', 'Bollinger']:
                 buy_conditions[stock][condition] = True
                 sell_conditions[stock][condition] = True
+
         for df_name in self.tr_data['charts'].keys():
             if '월봉' in df_name or '주봉' in df_name or '일봉' in df_name or '60분' in df_name or '30분' in df_name or '10분' in df_name or '3분' in df_name:
                 for idx in range(-60, 0):
@@ -979,26 +1015,24 @@ class Kiwoom(QAxWidget):
                         stock = self.tr_data['charts'][df_name].split('_')[0]                        
                         buy_conditions[stock]['MA'] = False
                         sell_conditions[stock]['MA'] = sell_conditions[stock]['MA'] and True
-            if '60분' in df_name or '30분' in df_name or '10분' in df_name or '3분' in df_name:                
+            if '60분' in df_name or '30분' in df_name or '10분' in df_name or '5분' in df_name or '3분' in df_name or '1분' in df_name:                
                 if self.tr_data['charts'][df_name]['PB'].values[-1] < 0.2 and self.tr_data['charts'][df_name]['SQZ'].values[-1] < 10:
                     stock = self.tr_data['charts'][df_name].split('_')[0]
-                    buy_conditions[stock]['Bollinger'] = True
+                    buy_conditions[stock]['Bollinger'] = buy_conditions[stock]['Bollinger'] and True
                     sell_conditions[stock]['Bollinger'] = False
                 elif self.tr_data['charts'][df_name]['PB'].values[-1] > 0.8:
                     stock = self.tr_data['charts'][df_name].split('_')[0]
                     buy_conditions[stock]['Bollinger'] = False
-                    sell_conditions[stock]['Bollinger'] = True
+                    sell_conditions[stock]['Bollinger'] = sell_conditions[stock]['Bollinger'] and True
         
-        buy = []
         for stock, ismet in buy_conditions.items():
             if all(ismet.values()):
-                buy.append(stock)
-        sell = []
+                orders['buy'].append(stock)
         for stock, ismet in sell_conditions.items():
             if all(ismet.values()):
-                sell.append(stock)
+                orders['sell'].append(stock)
 
-        return buy, sell
+        return orders
                         
       
     # *inputs take multiple functions to use and a list form of input values in order.
@@ -1100,12 +1134,15 @@ class Kiwoom(QAxWidget):
         codelist = [self.all_stocks['stockkeys'][stock] for stock in stocks]
         fidlist = [fid for fid in self.fids_dict['주식체결'].keys()]
         self.set_real_data('0100', codelist, fidlist, 1)
-    
-    
+      
     
     # Simplified chart request functions. Return df_name
+    def min1(self, stock):
+        self.request_minute_chart(stock, 1, pricetype=1)
     def min3(self, stock):
         self.request_minute_chart(stock, 3, pricetype=1)
+    def min5(self, stock):
+        self.request_minute_chart(stock, 5, pricetype=1)
     def min10(self, stock):
         self.request_minute_chart(stock, 10, pricetype=1)
     def min30(self, stock):
@@ -1120,19 +1157,15 @@ class Kiwoom(QAxWidget):
         self.request_monthly_chart(stock, datetime.today().strftime('%Y%m%d'), pricetype=1)
     
     def onestop_stock(self, *stocks):
-        chart_funcs = [self.min3, self.min10, self.min30, self.min60, self.daily, self.weekly, self.monthly]
+        chart_funcs = [self.min1, self.min3, self.min5, self.min10, self.min30, self.min60, self.daily, self.weekly, self.monthly]
         
         # When onestop_stock gets inputs from other functions, 
-        # such as _analyze_volitilities(), with a tuple return value
+        # such as _find_volitility(), with a tuple return value
         # it has to be indexed and peel out the outermost bracket as follows.
         if type(stocks[0]) != str:
-            stocks = stocks[0]
-        
-        print('stocks in onestop_stocks: ', stocks)
-        
+            stocks = stocks[0]       
         for stock in stocks:
-            self.following_stocks.add(stock)
-        
+            self.following_stocks.add(stock)        
         for chart_func in chart_funcs:
             for stock in stocks:
                 chart_func(stock)
@@ -1145,12 +1178,10 @@ class Kiwoom(QAxWidget):
         self._apply_strategies(self.tr_data['charts'].keys())
         print('All data processed to apply strategies\n')                
 
-        # with sqlite3.connect('test_tr_data.db') as file:
-        #     for df_name in self.tr_data['charts'].keys():
-        #         self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')   
-        
-        # self.request_real_chart(stocks)   
-        
+        with sqlite3.connect('test_tr_data.db') as file:
+            for df_name in self.tr_data['charts'].keys():
+                self.tr_data['charts'][df_name].to_sql(df_name, file, if_exists='append')  
+       
         self._event_loop_exec('tr')
 
     def request_mass_data(self, *stocklist, prenext=0):
@@ -1160,28 +1191,23 @@ class Kiwoom(QAxWidget):
         
         if type(stocklist) == list:
             if type(stocklist[0]) == str and len(stocklist) == 1:
-                stocklist = stocklist[0]
-                
+                stocklist = stocklist[0]                
             #when stocklist is a list filled with strings. stocklist=['삼성전자', '현대차']
             elif type(stocklist[0]) == str and len(stocklist) > 1:
-                pass
-            
+                pass            
         #when one list filled with stock name strings, it will actually be a list covered with a tuple
         #request_mass_data(stocks[:100]) -> stocks[:100] is in the form of ['삼성전자', '현대차']
         #the stocklist argument gets that input in the form of (['삼성전자', '현대차'])
         elif type(stocklist) == tuple and type(stocklist[0]) == list and type(stocklist[0][0] == str) and len(stocklist[0]) > 1:
-            stocklist = stocklist[0][0]
-        
+            stocklist = stocklist[0][0]        
         elif type(stocklist) == tuple and type(stocklist[0]) == str and len(stocklist) == 1:
             stocklist = stocklist[0]
         #when stocklist is a long string with stock names separated with ,
         #'삼성전자, 현대차, LG전자'
         elif type(stocklist) == str:
             pass
-
         for stock in stocklist.split(','):
             stocks.append(stock.strip())
-
         print(f'{stocklist} 1틱차트 실시간 정보 요청')
  
         codecnt = len(stocks)
@@ -1196,7 +1222,7 @@ class Kiwoom(QAxWidget):
 
     
     # 가격급등락요청
-    def request_sudden_price_change(self, market='000', updown='1', timeunit='1', dayormin='1', volume='00000', 
+    def request_sudden_price_change(self, market='000', updown='1', timeunit='1', dayormin='1', volume='01000', 
                                     stockcategory='1', creditcategory='0', pricecategory='0', includeendprice='1'):
         '''	
         시장구분 = 000:전체, 001:코스피, 101:코스닥, 201:코스피200
@@ -1215,7 +1241,7 @@ class Kiwoom(QAxWidget):
         self.comm_rq_data('OPT10019', 'opt10019', 0, '0050')   
     
     #거래량급증요청
-    def request_sudden_volume_change(self, market='000', upcategory='2', timeunit='1', volumecategory='5', 
+    def request_sudden_volume_change(self, market='000', upcategory='2', timeunit='1', volumecategory='1000', 
                                      minute='3', stockcategory='0', pricecategory='0'):
         '''
        	시장구분 = 000:전체, 001:코스피, 101:코스닥
@@ -1247,7 +1273,7 @@ class Kiwoom(QAxWidget):
         self.comm_rq_data('OPT10025', 'OPT10025', 0, '0052')
     
     # Simplified functions for sudden chages in prices, volume, and volume profile (point of control)    
-    def priceup(self, dayormin='1', volume='00000'):
+    def priceup(self, dayormin='1', volume='01000'):
         self.request_sudden_price_change('000', '1', '1', dayormin, volume) 
     def pricedown(self, dayormin='1', volume='00000'):
         self.request_sudden_price_change('000', '2', '1', dayormin, volume)          
@@ -1255,29 +1281,45 @@ class Kiwoom(QAxWidget):
         self.request_sudden_volume_change('000', '2', '1', '5', minute)
     def poc(self, number='5', poc_ratio='10', period='50'):
         self.request_volume_profile_point_of_control('000', poc_ratio, '1', number, period)
-    
-    def _find_volitilities(self):
+     
+    def _find_volitility(self):
         self.priceup()
         # self.pricedown()
         self.volumeup()
         self.poc()
-        
-    def _analyze_volitilities(self):
-        analyzees = ['가격급등락', '거래량급증', '매물대집중']
-        stocks = set()
-        print('df_names in _analyze_volitilities: ', self.tr_data['noncharts'].keys())
-        for df_name in self.tr_data['noncharts'].keys():
-            for analyzee in analyzees:
-                if analyzee in df_name:
-                    stock = df_name.split('_')[0]
-                    stocks.add(stock)        
-        return stocks
+
+        column = {'가격급등락':['급등률'], '거래량급증':['급증률'], '매물대집중':['등락률']}
+        stocks = {}
+        ideal = set() # any stocks that fall in all three categories, 가격급등락, 거래량급증, 매물대집중
+        for df_name, df in self.tr_data['volitility'].items():
+            self.tr_data['volitility'][df_name][column[df_name]] = self.tr_data['volitility'][df_name][column[df_name]].astype('float')
+            self.tr_data['volitility'][df_name].sort_values(column[df_name], ascending=False, inplace=True)
+            stocks[df_name] = self.tr_data['volitility'][df_name]['종목명'][:15]
+            for stock in stocks[df_name]:
+                ideal.add(stock)
+        # returns a tuple of 
+        # 'ideal', which is a list of stocks 가격급등락, 거래량급증, 매물대집중 all have
+        # 'stocks', which consists of top 15 stocks for 가격급등락, 거래량급증, 매물대집중 as a dictionary,
+        return ideal, stocks
     
-    def volitility_preference(self):
-        self._find_volitilities()
-        stocks = self._analyze_volitilities()
-        self.onestop_stock(stocks)
+    def onestop_volitility(self):
+        stocks = self._find_volitility()
+        # In case there exist any stock 가격급등락, 거래량급증, 매물대집중 are all met,
+        # target_stocks we will analyze will be those stocks, 
+        # which are in stocks[0] that returned from _find_volitility()
+        # In case the above conditions are not met,
+        # target_stocks will be the top 15 stocks for 거래량급증
+        # which are in stocks[1]['거래량급증']
+        if len(stocks[0]):
+            target_stocks = stocks[0]
+            print(f'\n거래량급증, 가격급등, 매물대집중 모두 충족하는 종목 {len(target_stocks)}개 발견. 해당종목 분석.\n')
+        else:
+            target_stocks = stocks[1]['거래량급증']            
+            print(f'\n거래량급증, 가격급등, 매물대집중 모두 충족하는 종목 미발견. 거래량급증 상위{len(target_stocks)} 분석.\n')
+
+        self.onestop_stock(target_stocks)
         self._apply_strategies()
+
         # orders = self._find_buy_sell()
         # for order in orders[0]:
         #     self.buy(order)
@@ -1307,8 +1349,7 @@ class Kiwoom(QAxWidget):
     def sell(self, stock, price, qty=1):
         self.make_order(stock, price, qty)
     def cancel(self, stock, price, qty, orderno):
-        self.make_order(stock, price, qty, '00', 1, orderno)
- 
+        self.make_order(stock, price, qty, '00', 1, orderno) 
                         
 app = QApplication(sys.argv)
 
@@ -1344,4 +1385,4 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
 # kiwoom.request_real_chart('현대차', '삼성전자', 'LG에너지솔루션')
 # kiwoom.onestop_stock('현대차', '삼성전자', 'LG에너지솔루션')
-kiwoom.volitility_preference()
+kiwoom.onestop_volitility()
