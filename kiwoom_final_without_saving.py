@@ -1073,7 +1073,7 @@ class Kiwoom(QAxWidget):
         #     self.set_input_value('종목코드', stockcode)
         #     self.set_input_value('기준일자', date_or_tick)
         #     self.set_input_value('수정주가구분', pricetype)
-        #     self.comm_rq_data('OPT10081', 'opt10081', 2, '0002')
+        #     self.comm_rq_data(str.upper(trcode), trcode, 2, '0002')
     
     def request_monthly_chart(self, stock, date, pricetype=1):
         '''
