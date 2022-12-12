@@ -1289,12 +1289,16 @@ class Kiwoom(QAxWidget):
         column = {'가격급등락':['급등률'], '거래량급증':['급증률'], '매물대집중':['등락률']}
         stocks = {}
         ideal = set() # any stocks that fall in all three categories, 가격급등락, 거래량급증, 매물대집중
+        seen = set()
         for df_name, df in self.tr_data['volitility'].items():
             self.tr_data['volitility'][df_name][column[df_name]] = self.tr_data['volitility'][df_name][column[df_name]].astype('float')
             self.tr_data['volitility'][df_name].sort_values(column[df_name], ascending=False, inplace=True)
             stocks[df_name] = self.tr_data['volitility'][df_name]['종목명'][:15]
             for stock in stocks[df_name]:
-                ideal.add(stock)
+                if stock in seen:
+                    ideal.add(stock)
+                else:
+                    seen.add(stock)
         # returns a tuple of 
         # 'ideal', which is a list of stocks 가격급등락, 거래량급증, 매물대집중 all have
         # 'stocks', which consists of top 15 stocks for 가격급등락, 거래량급증, 매물대집중 as a dictionary,
