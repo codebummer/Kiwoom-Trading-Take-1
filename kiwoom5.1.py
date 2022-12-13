@@ -892,7 +892,7 @@ class Kiwoom(QAxWidget):
     def _opw00001(self, rqname, trcode):
         add = {}
         for key in self.fids_dict['opw00001']:
-            add[key] = [self._get_comm_data(trcode, rqname, 0, key)]
+            add[key] = [self._get_comm_data(trcode, rqname, 0, key).lstrip('0')]
         df_name = self._df_generator('예수금상세현황', add)   
         if self.tr_data['noncharts'][df_name]['예수금'][0]:
             balance = int(self.tr_data['noncharts'][df_name]['예수금'][0])
