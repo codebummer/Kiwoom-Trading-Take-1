@@ -6,7 +6,7 @@ import pandas as pd
 import time, asyncio
 import sys, os, json, logging
 from datetime import datetime
-from kiwoomperonal import *
+from TradingDB.kiwoompersonal import *
 # import matplotlib.pyplot as plt
 
 #change the current working directory
@@ -89,7 +89,7 @@ class Kiwoom(QAxWidget):
         self.requesting_time_unit = ''
         self.df_names = {}
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
-        self.orders = {'orders':{'buy':set=(),'sell':set=()}, 'status':{}, 'prices':{}}
+        self.orders = {'orders':{'buy':set(),'sell':set()}, 'status':{}, 'prices':{}}
         '''self.orders = {'orders':{'buy':[stock names,..], 'sell':[stock names,..]}, 
                                   'status':{stockname:buying or bought or selling or sold},
                                   'prices':{stockname: {'bought': price}, {'sold':price}}}'''
@@ -171,8 +171,9 @@ class Kiwoom(QAxWidget):
             # 체결잔고요청
             'opw00005' : ['신용구분', '대출일', '만기일', '종목번호', '종목명', '결제잔고', '현재잔고', '현재가', '매입단가', '매입금액', '평가금액', '평가손익', '손익률'],
             # 예수금상세현황요청
-            'opw00001' : ['통화코드', '외화예수금', '원화대용평가금', '해외주식증거금', '출금가능금액(예수금)', '주문가능금액(예수금)', '외화미수(합계)', '외화현금미수금', 
-                          '연체료', 'd+1외화예수금', 'd+2외화예수금', 'd+3외화예수금', 'd+4외화예수금'],
+            # 'opw00001' : ['통화코드', '외화예수금', '원화대용평가금', '해외주식증거금', '출금가능금액(예수금)', '주문가능금액(예수금)', '외화미수(합계)', '외화현금미수금', 
+            #               '연체료', 'd+1외화예수금', 'd+2외화예수금', 'd+3외화예수금', 'd+4외화예수금'],
+            'opw00001' : ['예수금', '주문가능금액', 'd2+출금가능금액'],
             # 주식틱차트조회요청
             # 'opt10079' : ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분',
             #                 '종목정보', '수정주가이벤트', '전일종가'],
@@ -416,7 +417,13 @@ class Kiwoom(QAxWidget):
 
         # 주식시세, 주식체결, 주문체결, 주식일봉차트, 주식틱차트, 관심종목 will have df_name consising of
         # stock_realtype_timeunit : i.e. 삼성전자_주식일봉차트_30분봉
-        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        # When request the account balance without requesting any stock data,
+        # self.stockcode stays 0 and will cause an error, trying to index self.all_stocks with it.
+        if self.stockcode:
+            stock = self.all_stocks['tickerkeys'][self.stockcode]
+        else:
+            stock = None
+
         if realtype in ['주식분봉차트', '주식틱차트']:    
             # df_name is same as tr_datakeys, which is done in _df_generator
             # db file names are differently named in _data_to_sql, which is done in _timersave_df  
@@ -460,6 +467,7 @@ class Kiwoom(QAxWidget):
                 self.tr_data['noncharts'][df_name] = self.tr_data['noncharts'][df_name].append(pd.DataFrame(data), ignore_index=True)
             else:
                 self.tr_data['noncharts'][df_name] = pd.DataFrame(data)
+
         return df_name
           
     def account_info(self):
@@ -583,13 +591,12 @@ class Kiwoom(QAxWidget):
         elif rqname == 'OPT10025':
             self._opt10025(rqname, trcode)
 
-       
+        # 예수금상세현황요청
+        elif rqname == 'OPW00001':
+            self._opw00001(rqname, trcode)       
         # 계좌평가잔고내역요청
         elif rqname == 'OPW00018':
             self._opw00018(rqname, trcode)
-        # 예수금상세현황요청
-        elif rqname == 'OPW00001':
-            self._opw00001(rqname, trcode)
         # 계좌수익율요청
         elif rqname == 'OPT10085':
             self._opt10085(rqname, trcode)
@@ -632,7 +639,12 @@ class Kiwoom(QAxWidget):
     def _receive_msg(self, scrno, rqname, trcode, msg):
         # print('\n\nscrno, rqname, trcode, msg: ->in _receive_msg\n', scrno, rqname, trcode, msg)
         add = {}
-        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        # When request the account balance without requesting any stock data,
+        # self.stockcode stays 0 and will cause an error, trying to index self.all_stocks with it.
+        if self.stockcode:
+            stock = self.all_stocks['tickerkeys'][self.stockcode]
+        else:
+            stock = None
         msg_trimmed = msg.split()
         msg_trimmed[0] = msg_trimmed[0].strip('[]')
         all_msg = [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), stock, trcode, msg_trimmed[0], msg_trimmed[1], msg_trimmed[2]]
@@ -747,20 +759,15 @@ class Kiwoom(QAxWidget):
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
     
+    def get_balance(self):
+        inputs = {'계좌번호':self.account_num, '비밀번호':password, '비밀번호입력매체구분':'00', '조회구분':'2'}
+        for tr_name, tr_value in inputs.items():
+            self.set_input_value(tr_name, tr_value)
+        self.comm_rq_data('OPW00001', 'opw00001', '0', '0200')    
+
+    
     # _opt10079 ~ _opt10081 have an item for stock codes in output values in the guidebook, 
     # but actually return blank instead of stock codes 
-    
-    # 예수금상세현황
-    def _opw00001(self, rqname, trcode):
-        df_name = ''
-        data_cnt = self._get_repeat_cont(trcode, '주식틱차트')        
-        add = {}
-        for idx in range(data_cnt):
-            for key in self.fids_dict['opw00001']:
-                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]  
-            df_name = self._df_generator('예수금상세현황', add)   
-        balance = self.tr_data['noncharts'][df_name]['주문가능금액(예수금)']
-        print(f'예수금상세현황 정보 수신. 예수금 : {balance:,}원')            
     
     # 주식틱차트조회요청 결과처리
     def _opt10079(self, rqname, trcode):
@@ -880,6 +887,18 @@ class Kiwoom(QAxWidget):
             df_name = self._df_generator('매물대집중', add)
         stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'매물대집중 정보 {data_cnt}건 수신')          
+
+    # 예수금상세현황
+    def _opw00001(self, rqname, trcode):
+        add = {}
+        for key in self.fids_dict['opw00001']:
+            add[key] = [self._get_comm_data(trcode, rqname, 0, key)]
+        df_name = self._df_generator('예수금상세현황', add)   
+        if self.tr_data['noncharts'][df_name]['예수금'][0]:
+            balance = int(self.tr_data['noncharts'][df_name]['예수금'][0])
+        else:
+            balance = 0
+        print(f'예수금상세현황 정보 수신. 예수금 : {balance:,}원')       
     
     # 계좌평가잔고내역요청 결과처리
     def _opw00018(self, rqname, trcode):
@@ -889,18 +908,8 @@ class Kiwoom(QAxWidget):
             for key in self.fids_dict['opw00018']:
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             self._df_generator('계좌평가잔고내역', add)
-        print(f'계좌평가잔고내역 수신\n', self.tr_data['noncharts']['계좌평가잔고내역'])    
-    
-    # 예수금상세현황요청 결과처리
-    def _opw00001(self, rqname, trcode):
-        data_cnt = self._get_repeat_cont(trcode, '예수금상세현황')
-        add = {}
-        for idx in range(data_cnt):
-            for key in self.fids_dict['opw00001']:
-                add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
-            self._df_generator('예수금상세현황', add)
-        print(f'예수금상세현황 수신\n', self.tr_data['noncharts']['예수금상세현황'])  
-    
+        print(f'계좌평가잔고내역 수신\n', self.tr_data['noncharts']['계좌평가잔고내역'])       
+   
     # 계좌수익율요청 결과처리
     def _opt10085(self, rqname, trcode):
         data_cnt = self._get_repeat_cont(trcode, '계좌수익율')
@@ -1512,4 +1521,6 @@ mass = lambda stocks: kiwoom.request_mass_data(stocks)
 # mass('LG에너지솔루션, SK텔레콤, 현대차')
 # kiwoom.request_real_chart('현대차', '삼성전자', 'LG에너지솔루션')
 # kiwoom.onestop_stock('현대차', '삼성전자', 'LG에너지솔루션')
-kiwoom.onestop_volitility()
+# kiwoom.onestop_volitility()
+kiwoom.get_balance()
+print(kiwoom.tr_data['noncharts'])
