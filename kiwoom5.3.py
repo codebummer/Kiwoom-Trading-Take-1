@@ -1285,7 +1285,12 @@ class Kiwoom(QAxWidget):
                         break
                     # do not 'break' after queing 'buy' (evaluating for 'buying qued') 
                     # unless money is not enough to make orders
-                    # because the same stock can be qued for 'selling qued'              
+                    # because the same stock can be qued for 'selling qued' 
+                    # Even if money is not enough to buy, 
+                    # do not break out of all the loop,              
+                    # just break out of the immediate loop,
+                    # because there can be stocks to sell,
+                    # in order to sell the stocks, the outer loop should keep going 
                 if status == 'selling' and values == 'qued':
                     if self._is_stock_enough(stock):
                         price = int(self.tr_data['charts'][stock+'_주식분봉차트_3분']['현재가'].values[-1])
