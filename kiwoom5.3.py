@@ -1268,7 +1268,6 @@ class Kiwoom(QAxWidget):
 
     def _order_strategies(self, qty=1):  
         '''number represents the number of the stocks for the orders you want to make'''
-        Break = False      
         for stock, details in self.orders['orders'].items():
             for status, values in details.items():
                 if status == 'buying' and values == 'qued':
@@ -1283,7 +1282,6 @@ class Kiwoom(QAxWidget):
                             print(f'투자한도설정액 {limit:,}원 초과. 현재투자액 {spent:,}원')
                     else:
                         print('Not enough money to make orders') 
-                        Break = True
                         break
                     # do not 'break' after queing 'buy' (evaluating for 'buying qued') 
                     # unless money is not enough to make orders
@@ -1294,9 +1292,7 @@ class Kiwoom(QAxWidget):
                         print(f'{stock} {qty}주 {price}원에 매도주문시도')
                         self.sell(stock, price, qty)
                     else:
-                        print(f'{stock} 보유주식없음. 매수불가.')                        
-            if Break:
-                break
+                        print(f'{stock} 보유주식없음. 매수불가.')    
     
     def _auto_orders(self, qty=1):
         '''
