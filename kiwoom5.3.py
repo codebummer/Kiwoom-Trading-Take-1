@@ -1655,7 +1655,7 @@ class Kiwoom(QAxWidget):
         # returns a tuple of 
         # 'ideal', which is a list of stocks 가격급등락, 거래량급증, 매물대집중 all have
         # 'stocks', which consists of top 15 stocks for 가격급등락, 거래량급증, 매물대집중 as a dictionary,
-        return ideal, stocks
+        return list(ideal), stocks
     
     def onestop_volitility(self, qty=1):
         stocks = self._find_volitility()
@@ -1669,7 +1669,9 @@ class Kiwoom(QAxWidget):
             target_stocks = stocks[0]
             print(f'\n거래량급증, 가격급등, 매물대집중 모두 충족하는 종목 {len(target_stocks)}개 발견. 해당종목 분석.\n')
         else:
-            target_stocks = stocks[1]['거래량급증']            
+            # .values should be included in the following statement,
+            # or it will cause an error
+            target_stocks = stocks[1]['거래량급증'].values            
             print(f'\n거래량급증, 가격급등, 매물대집중 모두 충족하는 종목 미발견. 거래량급증 상위{len(target_stocks)} 분석.\n')
         
         self.onestop_stock(target_stocks, qty=qty)    
