@@ -734,7 +734,7 @@ class Kiwoom(QAxWidget):
             # update self.orders based on 계좌평가현황
             def _check_heldstock(stock):
                 df = self.tr_data['noncharts']['계좌평가현황']
-                return int(df.loc[df['종목명']==stock]['보유수량'])
+                return int(df.loc[df['종목명']==stock, '보유수량'].values[0])
 
             record = self.tr_data['noncharts']['체결잔고'].loc[self.tr_data['noncharts']['체결잔고']['종목명']==stock].iloc[-1]
             for column in ['주문수량', '주문가격', '미체결수량', '체결가', '체결량']:
@@ -842,7 +842,7 @@ class Kiwoom(QAxWidget):
     
     # Evaluate if there exist enough stocks to sell
     def _is_stock_enough(self, stock):
-        record = self.tr_data['noncharts']['계좌평가현황'].loc[self.tr_data['noncharts']['계좌평가현황']['종목명']==stock]
+        record = self.tr_data['noncharts']['계좌평가현황'].loc[self.tr_data['noncharts']['계좌평가현황']['종목명']==stock].iloc[0]
         return record['보유수량'].values[0]
 
     # 예수금상세현황요청
@@ -1006,7 +1006,10 @@ class Kiwoom(QAxWidget):
             add[key] = [self._get_comm_data(trcode, rqname, 0, key)]  
         df_name = self._df_generator('계좌평가현황', add)
         columns = ['종목명', '보유수량', '평균단가', '매입금액', '결제잔고']
-        df = self.tr_data['noncharts'][df_name][columns]
+        # filter() is recommended to be used in the following statement,
+        # instead of 'self.tr_data['noncharts'][df_name][columns]'
+        # or, it will raise a warning
+        df = self.tr_data['noncharts'][df_name].filter(columns)
         df.replace('', 0, inplace=True)
         for column in df.columns:
             if column not in ['종목명']:
@@ -1601,6 +1604,9 @@ class Kiwoom(QAxWidget):
             # In that case, the last element in the stocks list will be read as qty
             if type(stocks[-1]) == int:
                 for stock in stocks[:-1]:
+                    chart_func(stock)
+            else:
+                for stock in stocks:
                     chart_func(stock)
             print('\n')
         
