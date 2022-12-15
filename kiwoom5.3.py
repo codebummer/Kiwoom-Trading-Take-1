@@ -91,17 +91,20 @@ class Kiwoom(QAxWidget):
         self.requesting_time_unit = ''
         self.df_names = {}
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
-        self.orders = {'orders':{}, 'follow':set(), 'analyzed':0, 'limit':1_000_000, 'spent':0}
+        self.orders = {'orders':{}, 'follow':set(), 'analyzed':0, 'qty': 1, 'limit':1_000_000, 'spent':0}
         '''
-        self.orders = {'orders': {stock: {'buying': [price, number], 'bought': [price, number], 'selling': [price, number], 'sold':[price,number]},
-                                  stock: {'buying': [price, number], 'bought': [price, number], 'selling': [price, number], 'sold':[price,number]},                    
+        self.orders = {'orders': {stock: {'buying': [price, qty], 'bought': [price, qty], 'selling': [price, qty], 'sold':[price,qty]},
+                                  stock: {'buying': [price, qty], 'bought': [price, qty], 'selling': [price, qty], 'sold':[price,qty]},                    
+                                  stock: {'buying': ['qued', qty],......................, 'selling': ['qued', qty]}
+                                  'buying' and 'selling' can have 'qued' in their values which indicates a buy or sell order should be placed for the stock with the quantity.
                                   add keys of 'buying', 'bought', 'selling', 'sold' and their values if such values added for each stock
                                   pop keys of 'buying', 'bought', 'selling', 'sold' and their values if such values removed for each stock
                         'follow': (stock name, stock name, stock name....)
-                        'analyzed' : the number of the stocks strategies are already applied to be analyzed
-                                     this number helps determine if MA strategies should be evaluated again.
+                        'analyzed' : the qty of the stocks strategies are already applied to be analyzed
+                                     this qty helps determine if MA strategies should be evaluated again.
                                      In case len(self.orders['follow']) > self.orders['analyzed'],
                                      evaluate the stocks for MA again
+                        'qty': the number of the stocks to trade at one time
                         'limit' : the amount of money set to limit daily investment
                         'spent' : the amount of money you spent to invest so far
                         
@@ -336,8 +339,11 @@ class Kiwoom(QAxWidget):
             # which is why _apply_strategies is at the bottom line of this method
             # to reflect all the possible changes at once.       
             
+  
             # self._apply_strategies(applylist)
             self._apply_fast_strategies(applylist)
+            self._find_fast_buy_sell()
+            self._order_strategies(self.orders['qty']) 
             print('Renewed data processing completed\n')
 
             with sqlite3.connect('test_tr_data.db') as file:
@@ -1281,7 +1287,8 @@ class Kiwoom(QAxWidget):
                     print(f'{stock} 매도종목으로 선정')
 
         if not Found:
-            print('현시점 투자전략조건 불일치')
+            now = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+            print(f'{now} 기준 투자전략조건 불일치')
 
     def _order_strategies(self, qty=1):  
         '''number represents the number of the stocks for the orders you want to make'''
@@ -1293,7 +1300,7 @@ class Kiwoom(QAxWidget):
                     if self._is_balance_enough(price, qty):
                         if self.orders['limit'] > self.orders['spent']:
                             print(f'{stock} {qty}주 {price}원에 매수주문시도')
-                            self.buy(stock, price)
+                            self.buy(stock, price, qty)
                             Ordered = True
                         else:
                             limit = self.orders['limit']
@@ -1591,6 +1598,7 @@ class Kiwoom(QAxWidget):
         '''
         stockcode = self.all_stocks['stockkeys'][stock]
         self.stockcode = stockcode
+        self.orders['qty'] = qty
         order = ['신규매수', '신규매도', '매수취소', '매도취소', '매수정정', '매도정정'][ordertype]
         # print('\nself.account_num, ordertype, stockcode, qty, price, hogagb, orderno:\n', self.account_num, ordertype, stockcode, qty, price, hogagb, orderno)
         print(f'{stock} {price}원 {qty}주 {order} 신청')
@@ -1623,9 +1631,11 @@ class Kiwoom(QAxWidget):
             # qty will be in the list of stocks as its last element.
             # In that case, the last element in the stocks list will be read as qty
             if type(stocks[-1]) == int:
+                self.order['qty'] = stocks[-1]
                 for stock in stocks[:-1]:
-                    chart_func(stock)
+                    chart_func(stock)                
             else:
+                self.order['qty'] = qty
                 for stock in stocks:
                     chart_func(stock)
             print('\n')
