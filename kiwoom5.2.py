@@ -43,6 +43,8 @@ class Kiwoom(QAxWidget):
         self.account_info()    
         self.all_stocks = self.stock_ticker()
         self._make_timer()  
+        self.get_balance()
+        self.get_account_status()
 
     def OCX_available(self):
         self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
@@ -543,59 +545,7 @@ class Kiwoom(QAxWidget):
                 
         self._event_loop_exec('real')
 
-    def _follow_stocks(self, stock, status=''):
-        '''
-        To change values in self.orders - global variable for all stocks you analyze, or order
-        self.orders['follow'] keeps track of the stocks you're interested in but yet to trade, 
-        self.orders['orders'] keeps track of the stocks you made or plane to make orders for.
-        stock: a stock name
-        status: input 'bought' if you bought the stock,
-                 input 'follow' if you're tracking the stock, but not yet bought,
-                 input 'sold' if you sold the stock
-        num: number of stocks you want to trade'''
-        
-        if status == 'follow':
-            self.orders['follow'].add(stock)
-        elif status == '':
-            record = self.tr_data['noncharts']['체결잔고'].loc[self.tr_data['noncharts']['체결잔고']['종목명']==stock].iloc[-1]
-
-            if stock not in self.orders['orders'].keys():
-                if '매수' in record['주문구분']:
-                    self.orders['orders'][stock] = {'buying': [int(record['주문가격']), int(record['주문수량'])]}
-                elif '매도' in record['주문구분']:
-                    self.orders['orders'][stock] = {'selling': [int(record['주문가격']), int(record['주문수량'])]}
-
-            else:
-                if int(record['미체결수량']):
-                    if '매수' in record['주문구분']:
-                        self.orders['orders'][stock]['buying'] = [int(record['주문가격']), int(record['주문수량'])]
-                    elif '매도' in record['주문구분']:
-                        self.orders['orders'][stock]['selling'] = [int(record['주문가격']), int(record['주문수량'])]
-                elif int(record['체결량']):
-                    if '매수' in record['주문구분']:
-                        self.orders['orders'][stock]['bought'] = [int(record['주문가격']), int(record['주문수량'])]
-                    elif '매도' in record['주문구분']:
-                        self.orders['orders'][stock]['sold'] = [int(record['주문가격']), int(record['주문수량'])]
-                        if int(record['']) 
-
-                
-
-                
-        
-        elif status == 'sold':
-            self.following_stocks[stock] -= num
-            if self.following_stocks[stock] <= 0:
-                self.following_stocks.pop(stock)
-        elif status == 'follow':
-            pass
-        else:
-            if status == 'bought':
-                self.following_stocks[stock] = num
-            elif status == 'sold':
-                self.following_stocks[stock] = 0
-                print('No such stock is currently held')
-            elif status == 'follow':
-                self.following_stocks[stock] = 0                         
+                     
         
     def set_order(self, rqname, scrno, accno, ordertype, code, qty, price, hogagb, orgorderno):
         #SendOrder() takes its argument as a list form. Put all the input values in []
@@ -674,7 +624,10 @@ class Kiwoom(QAxWidget):
 
         # 예수금상세현황요청
         elif rqname == 'OPW00001':
-            self._opw00001(rqname, trcode)       
+            self._opw00001(rqname, trcode)  
+        # 계좌평가현황요청
+        elif rqname == 'OPW00004':
+            self._opw00004(rqname, trcode)     
         # 계좌평가잔고내역요청
         elif rqname == 'OPW00018':
             self._opw00018(rqname, trcode)
@@ -766,19 +719,62 @@ class Kiwoom(QAxWidget):
         add = {}
         for fid in fidlist_checked:
             add[self.fids_dict['주문체결'][int(fid)]] = [self._get_chejan_data(fid)]
-        #the second argument, stockcode, is assigned '', 
-        #which makes _df_generator df_name without stock name in it.
-        df_name = self._df_generator('체결잔고', add)
+        self._df_generator('체결잔고', add)
+        self._follow_stocks(add['종목명'][0])
         print(f'주문체결/체결잔고 내용수신')
-        current_order = self.tr_data['noncharts'][df_name].iloc[-1]
-        status = current_order['주문상태']
-        stock = current_order['종목명']
-        num = current_order['주문수량']
-        price = current_order['주문가격']
-        if status == '접수':
-            self._follow_stocks(stock, 'follow', num)
-             
-        # self._follow_stocks(stock, 'add', num)
+            
+    # update self.orders based on 계좌평가현황
+    def _follow_stocks(self, stock, status=''):
+        '''
+        To change values in self.orders - global variable for all stocks you analyze, or order
+        self.orders['follow'] keeps track of the stocks you're interested in but yet to trade, 
+        self.orders['orders'] keeps track of the stocks you made or plane to make orders for.
+        stock: a stock name
+        status: input 'bought' if you bought the stock,
+                 input 'follow' if you're tracking the stock, but not yet bought,
+                 input 'sold' if you sold the stock
+        num: number of stocks you want to trade'''
+        # No orders bought or sold but follow stocks to analyze
+        if status == 'follow':
+            self.orders['follow'].add(stock)
+        
+        # Stocks are bought or sold and keeps following those stocks for later transactions
+        elif status == '':
+            self.orders['follow'].add(stock)
+
+            # update self.orders based on 계좌평가현황
+            def _check_heldstock(stock):
+                df = self.tr_data['noncharts']['계좌평가현황']
+                return int(df.loc[df['종목명']==stock]['보유수량'])
+
+            record = self.tr_data['noncharts']['체결잔고'].loc[self.tr_data['noncharts']['체결잔고']['종목명']==stock].iloc[-1]
+            for column in ['주문수량', '주문가격', '미체결수량', '체결가', '체결량']:
+                record[column] = int(record[column])
+
+            if stock in self.orders['orders'].keys():
+                if record['미체결수량']:
+                    if '매수' in record['주문구분']:
+                        self.orders['orders'][stock]['buying'] = [record['주문가격'], record['주문수량']]
+                    elif '매도' in record['주문구분']:
+                        self.orders['orders'][stock]['selling'] = [record['주문가격'], record['주문수량']]
+                elif record['체결량']:
+                    if '매수' in record['주문구분']:
+                        self.orders['orders'][stock]['bought'] = [record['체결가'], record['체결량']]
+                        self.orders['orders'][stock].pop('buying')
+                    elif '매도' in record['주문구분']:  
+                        # 계좌평가현황의 보유수량확인
+                        if _check_heldstock(stock) > 0:                      
+                            self.orders['orders'][stock]['sold'] = [record['체결가'], record['체결량']]
+                            self.orders['orders'][stock].pop('selling')
+                            self.orders['orders'][stock].pop('bought')
+            else:
+                if '매수' in record['주문구분']:
+                    self.orders['orders'][stock] = {'buying': [record['주문가격'], record['주문수량']]}
+                elif '매도' in record['주문구분']:
+                    if _check_heldstock(stock):                  
+                        self.orders['orders'][stock] = {'selling': [record['주문가격'], record['주문수량']]}
+                    else:
+                        print('매수신청종목을 보유하지 않은 상황입니다. 매수신청이 불가능합니다.')             
 
     # 국내주식 잔고변경 수신내용처리
     def _domestic_balance_change(self, itemcnt, fidlist): #itemcnt is the number of fid elements in fidlist
@@ -849,11 +845,19 @@ class Kiwoom(QAxWidget):
     def _get_comm_data(self, trcode, rqname, idx, itemname):
         return self.dynamicCall('GetCommData(QString, QString, int, QSTring)', trcode, rqname, idx, itemname).strip()
     
+    # 예수금상세현황요청
     def get_balance(self):
         inputs = {'계좌번호':self.account_num, '비밀번호':password, '비밀번호입력매체구분':'00', '조회구분':'2'}
         for tr_name, tr_value in inputs.items():
             self.set_input_value(tr_name, tr_value)
         self.comm_rq_data('OPW00001', 'opw00001', '0', '0200')    
+    
+    # 계좌평가현황요청
+    def get_account_status(self):
+        inputs = {'계좌번호':self.account_num, '비밀번호':password, '상장폐지조회구분':'0', '비밀번호입력매체구분':'00'}
+        for tr_name, tr_value in inputs.items():
+            self.set_input_value(tr_name, tr_value)
+        self.comm_rq_data('OPW00004', 'OPW00004', '0', '0201')        
 
     
     # _opt10079 ~ _opt10081 have an item for stock codes in output values in the guidebook, 
@@ -991,9 +995,42 @@ class Kiwoom(QAxWidget):
         if self.tr_data['noncharts'][df_name]['주문가능금액'][0]:
             cash_available = int(self.tr_data['noncharts'][df_name]['주문가능금액'][0])
         else:
-            cash_available = 0
-        
+            cash_available = 0        
         print(f'예수금상세현황/주문가능금액 정보수신: 예수금 {balance:,}원 / 주문가능금액 {cash_available:,}원')       
+
+    # 계좌평가현황요쳥 결과처리
+    def _opw00004(self, rqname, trcode):
+        data_cnt = self._get_repeat_cont(trcode, '계좌평가현황')        
+        add = {}
+        for key in self.fids_dict['OPW00004']:
+            add[key] = [self._get_comm_data(trcode, rqname, 0, key)]  
+        df_name = self._df_generator('계좌평가현황', add)
+        columns = ['종목명', '보유수량', '평균단가', '매입금액', '결제잔고']
+        df = self.tr_data['noncharts'][df_name][columns]
+        df.replace('', 0, inplace=True)
+        for column in df.columns:
+            if column not in ['종목명']:
+                df[column] = df[column].astype('int')
+        print('계좌평가현황정보수신\n', df)
+        
+    #     # evaluate if self.orders has its inital value at the begining
+    #     if self.orders == {'orders':{}, 'follow':set()}:
+    #         self._initial_update_account_status(df_name)   
+
+    # # initial update self.orders based on 계좌평가현황: executes only once at the begining
+    # def _initial_update_account_status(self, df_name):
+    #     columns = ['종목명', '보유수량', '평균단가', '현재가', '매입금액', '평가금액', '손익금액','손익율']
+    #     if len(self.tr_data['noncharts'][df_name]):
+    #         df = self.tr_data['noncharts'][df_name][columns]
+    #         for stock in df['종목명']:
+    #             record = df.loc[df['종목명']==stock]
+    #             if stock in self.orders['orders'].keys():
+    #                 self.orders['orders'][stock]['bought'] = [record['매입금액'], record['보유수량']]
+    #             else:
+    #                 self.orders['orders'][stock] = {'bought': [record['매입금액'], record['보유수량']]}
+    #         print(f'계좌평가현황정보 {len(df)}건 수신\n', df)
+    #     else:
+    #         print(f'계좌평가현황정보 수신내역 없음.')
     
     # 계좌평가잔고내역요청 결과처리
     def _opw00018(self, rqname, trcode):
@@ -1656,7 +1693,7 @@ min10 = lambda stock: kiwoom.request_minute_chart(stock, 10)
 min3 = lambda stock: kiwoom.request_minute_chart(stock, 3)
 tick = lambda stock: kiwoom.request_tick_chart(stock, 1)
 mass = lambda stocks: kiwoom.request_mass_data(stocks)
-buy('삼성전자', 61000, 1)
+# buy('삼성전자', 61000, 1)
 # sell('삼성전자', 62000, 1)
 # buyfast('삼성전자', 61000, 1)
 # sellfast('삼성전자', 62000, 1)
