@@ -1244,6 +1244,7 @@ class Kiwoom(QAxWidget):
         # update self.orders['analyzed'] to the number of stocks analyzed for strategies    
         self.orders['analyzed'] = len(self.orders['follow'])
 
+        Found = False
         # ismet -> {condition: True or False}
         for stock, ismet in buy_conditions.items():
             # ismet.values() returns all True or False evaluations
@@ -1252,12 +1253,16 @@ class Kiwoom(QAxWidget):
                     # put 'qued' in 'buying' so that it can be identified as a stock to place a buy order for
                     if 'buying' not in self.orders['orders'][stock].keys():
                         self.orders['orders'][stock]['buying'] = 'qued'
+                        Found = True
                         print(f'{stock} 매수종목으로 선정')
                     # when 'buying' is already in progress and not yet bought, let the status intact
                     else:                        
                         pass
                 else:
                     self.orders[stock] = {'buying':'qued'}
+                    Found = True
+                    print(f'{stock} 매수종목으로 선정')
+
         for stock, ismet in sell_conditions.items():
             # ismet.values() returns all True or False evaluations
             if all(ismet.values()):
@@ -1265,15 +1270,22 @@ class Kiwoom(QAxWidget):
                     # put 'qued' in 'selling' so that it can be identified as a stock to place a sell order for
                     if 'selling' not in self.orders['orders'][stock].keys():
                         self.orders['orders'][stock]['selling'] = 'qued'
+                        Found = True
                         print(f'{stock} 매도종목으로 선정')
                     # when 'selling' is already in progress and not yet sold, let the status intact
                     else:
                         pass
                 else:
                     self.orders[stock] = {'selling':'qued'}
+                    Fount = True
+                    print(f'{stock} 매도종목으로 선정')
+
+        if not Found:
+            print('현시점 투자전략조건 불일치')
 
     def _order_strategies(self, qty=1):  
         '''number represents the number of the stocks for the orders you want to make'''
+        Ordered = False
         for stock, details in self.orders['orders'].items():
             for status, values in details.items():
                 if status == 'buying' and values == 'qued':
@@ -1282,6 +1294,7 @@ class Kiwoom(QAxWidget):
                         if self.orders['limit'] > self.orders['spent']:
                             print(f'{stock} {qty}주 {price}원에 매수주문시도')
                             self.buy(stock, price)
+                            Ordered = True
                         else:
                             limit = self.orders['limit']
                             spent = self.orders['spent']
@@ -1302,8 +1315,12 @@ class Kiwoom(QAxWidget):
                         price = int(self.tr_data['charts'][stock+'_주식분봉차트_3분']['현재가'].values[-1])
                         print(f'{stock} {qty}주 {price}원에 매도주문시도')
                         self.sell(stock, price, qty)
+                        Ordered = True
                     else:
-                        print(f'{stock} 보유주식없음. 매수불가.')    
+                        print(f'{stock} 보유주식없음. 매수불가.') 
+        if not Ordered:
+            print('매도/매수주문 내지않음')
+           
     
     def _auto_orders(self, qty=1):
         '''
