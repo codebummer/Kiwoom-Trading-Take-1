@@ -953,7 +953,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             self.stockcode = add['종목코드'][0]
             df_name = self._df_generator('가격급등락', add)
-        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        if self.stockcode:
+            stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'가격급등락 정보 {data_cnt}건 수신')  
     
     # 거래량급증요청 결과처리
@@ -966,7 +967,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             self.stockcode = add['종목코드'][0]
             df_name = self._df_generator('거래량급증', add)
-        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        if self.stockcode:
+            stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'거래량급증 정보 {data_cnt}건 수신')  
     
     # 매물대집중요청 결과처리
@@ -979,7 +981,8 @@ class Kiwoom(QAxWidget):
                 add[key] = [self._get_comm_data(trcode, rqname, idx, key)]
             self.stockcode = add['종목코드'][0]
             df_name = self._df_generator('매물대집중', add)
-        stock = self.all_stocks['tickerkeys'][self.stockcode]
+        if self.stockcode:
+            stock = self.all_stocks['tickerkeys'][self.stockcode]
         print(f'매물대집중 정보 {data_cnt}건 수신')          
 
     # 예수금상세현황
