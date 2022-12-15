@@ -1288,7 +1288,7 @@ class Kiwoom(QAxWidget):
 
         if not Found:
             now = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-            print(f'{now} 기준 투자전략조건 불일치')
+            print(f'{now} 현재 투자전략조건 불일치')
 
     def _order_strategies(self, qty=1):  
         '''number represents the number of the stocks for the orders you want to make'''
@@ -1326,7 +1326,7 @@ class Kiwoom(QAxWidget):
                     else:
                         print(f'{stock} 보유주식없음. 매수불가.') 
         if not Ordered:
-            print('매도/매수주문 내지않음')
+            print('매도/매수주문 내지않음. 타이머 설정시간후 재검토 예정.')
            
     
     def _auto_orders(self, qty=1):
