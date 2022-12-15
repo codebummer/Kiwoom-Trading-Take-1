@@ -1160,7 +1160,7 @@ class Kiwoom(QAxWidget):
         
         def _bollinger(df_name):
             if self.tr_data['charts'][df_name]['PB'].values[-1] < 0.2 and self.tr_data['charts'][df_name]['SQZ'].values[-1] < 10:
-                stock = self.tr_data['charts'][df_name].split('_')[0]
+                stock = df_name.split('_')[0]
                 # Bollinger will look at the number at the latest value,
                 # which means Bollinger = True, not Bollinger = Bollinger and True
                 buy_conditions[stock]['Bollinger'] = True
@@ -1223,7 +1223,7 @@ class Kiwoom(QAxWidget):
         
         def _bollinger(df_name):
             if self.tr_data['charts'][df_name]['PB'].values[-1] < 0.2 and self.tr_data['charts'][df_name]['SQZ'].values[-1] < 10:
-                stock = self.tr_data['charts'][df_name].split('_')[0]
+                stock = df_name.split('_')[0]
                 buy_conditions[stock]['Bollinger'] = True
                 sell_conditions[stock]['Bollinger'] = False
             elif self.tr_data['charts'][df_name]['PB'].values[-1] > 0.8:
