@@ -1631,11 +1631,11 @@ class Kiwoom(QAxWidget):
             # qty will be in the list of stocks as its last element.
             # In that case, the last element in the stocks list will be read as qty
             if type(stocks[-1]) == int:
-                self.order['qty'] = stocks[-1]
+                self.orders['qty'] = stocks[-1]
                 for stock in stocks[:-1]:
                     chart_func(stock)                
             else:
-                self.order['qty'] = qty
+                self.orders['qty'] = qty
                 for stock in stocks:
                     chart_func(stock)
             print('\n')
