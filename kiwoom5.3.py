@@ -1146,7 +1146,7 @@ class Kiwoom(QAxWidget):
         def _mas(df_name):
             for idx in range(-60, 0):
                 if self.tr_data['charts'][df_name]['MA60'].values[idx] < self.tr_data['charts'][df_name]['MA20'].values[idx] < self.tr_data['charts'][df_name]['MA10'].values[idx] < self.tr_data['charts'][df_name]['MA5'].values[idx] < self.tr_data['charts'][df_name]['MA3'].values[idx]:
-                    stock = self.tr_data['charts'][df_name].split('_')[0]
+                    stock = df_name.split('_')[0]
                     # MA conditions should be met during the entire period of comparison,
                     # which means MA = MA and True, not MA = True
                     buy_conditions[stock]['MA'] = buy_conditions[stock]['MA'] and True
@@ -1154,7 +1154,7 @@ class Kiwoom(QAxWidget):
                     # so the next line is commented out
                     # sell_conditions[stock]['MA'] = False
                 else:
-                    stock = self.tr_data['charts'][df_name].split('_')[0]                        
+                    stock = df_name.split('_')[0]                        
                     buy_conditions[stock]['MA'] = False
                     # sell_conditions[stock]['MA'] = sell_conditions[stock]['MA'] and True
         
@@ -1166,7 +1166,7 @@ class Kiwoom(QAxWidget):
                 buy_conditions[stock]['Bollinger'] = True
                 sell_conditions[stock]['Bollinger'] = False
             elif self.tr_data['charts'][df_name]['PB'].values[-1] > 0.8:
-                stock = self.tr_data['charts'][df_name].split('_')[0]
+                stock = df_name.split('_')[0]
                 buy_conditions[stock]['Bollinger'] = False
                 sell_conditions[stock]['Bollinger'] = True
 
@@ -1212,12 +1212,12 @@ class Kiwoom(QAxWidget):
         def _mas(df_name):
             for idx in range(-60, 0):
                 if self.tr_data['charts'][df_name]['MA60'].values[idx] < self.tr_data['charts'][df_name]['MA20'].values[idx] < self.tr_data['charts'][df_name]['MA10'].values[idx] < self.tr_data['charts'][df_name]['MA5'].values[idx] < self.tr_data['charts'][df_name]['MA3'].values[idx]:
-                    stock = self.tr_data['charts'][df_name].split('_')[0]
+                    stock = df_name.split('_')[0]
                     buy_conditions[stock]['MA'] = buy_conditions[stock]['MA'] and True
                     # MA does not change sell conditions, because selling timing will be decided only by Bollinger
                     # sell_conditions[stock]['MA'] = False
                 else:
-                    stock = self.tr_data['charts'][df_name].split('_')[0]                        
+                    stock = df_name.split('_')[0]                        
                     buy_conditions[stock]['MA'] = False
                     # sell_conditions[stock]['MA'] = sell_conditions[stock]['MA'] and True
         
@@ -1227,7 +1227,7 @@ class Kiwoom(QAxWidget):
                 buy_conditions[stock]['Bollinger'] = True
                 sell_conditions[stock]['Bollinger'] = False
             elif self.tr_data['charts'][df_name]['PB'].values[-1] > 0.8:
-                stock = self.tr_data['charts'][df_name].split('_')[0]
+                stock = df_name.split('_')[0]
                 buy_conditions[stock]['Bollinger'] = False
                 sell_conditions[stock]['Bollinger'] = True            
 
