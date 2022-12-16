@@ -91,7 +91,7 @@ class Kiwoom(QAxWidget):
         self.requesting_time_unit = ''
         self.df_names = {}
         self.starting_time, self.lapse, self.SAVING_INTERVAL = time.time(), 0, 60*10  
-        self.orders = {'orders':{}, 'follow':set(), 'analyzed':0, 'qty': 1, 'limit':1_000_000, 'spent':0}
+        self.orders = {'orders': {}, 'follow':set(), 'analyzed':0, 'qty': 1, 'limit':1_000_000, 'spent':0}
         '''
         self.orders = {'orders': {stock: {'buying': [price, qty], 'bought': [price, qty], 'selling': [price, qty], 'sold':[price,qty]},
                                   stock: {'buying': [price, qty], 'bought': [price, qty], 'selling': [price, qty], 'sold':[price,qty]},                    
@@ -1150,7 +1150,8 @@ class Kiwoom(QAxWidget):
         
         # Change MA conditions to sell
         def _mas(df_name):
-            for idx in range(-60, 0):
+            period =  -len(self.tr_data['charts'][df_name]) if len(self.tr_data['charts'][df_name]) < 60 else -60
+            for idx in range(period, 0):
                 if self.tr_data['charts'][df_name]['MA60'].values[idx] < self.tr_data['charts'][df_name]['MA20'].values[idx] < self.tr_data['charts'][df_name]['MA10'].values[idx] < self.tr_data['charts'][df_name]['MA5'].values[idx] < self.tr_data['charts'][df_name]['MA3'].values[idx]:
                     stock = df_name.split('_')[0]
                     # MA conditions should be met during the entire period of comparison,
@@ -1216,7 +1217,8 @@ class Kiwoom(QAxWidget):
                 sell_conditions[stock][condition] = True
         
         def _mas(df_name):
-            for idx in range(-60, 0):
+            period =  -len(self.tr_data['charts'][df_name]) if len(self.tr_data['charts'][df_name]) < 60 else -60
+            for idx in range(period, 0):
                 if self.tr_data['charts'][df_name]['MA60'].values[idx] < self.tr_data['charts'][df_name]['MA20'].values[idx] < self.tr_data['charts'][df_name]['MA10'].values[idx] < self.tr_data['charts'][df_name]['MA5'].values[idx] < self.tr_data['charts'][df_name]['MA3'].values[idx]:
                     stock = df_name.split('_')[0]
                     buy_conditions[stock]['MA'] = buy_conditions[stock]['MA'] and True
