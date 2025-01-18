@@ -1,0 +1,90 @@
+import realtype  # C extension module for optimized real-time stock status processing
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QAxContainer import QAxWidget
+from PyQt5.QtCore import QTimer, QEventLoop
+import sqlite3
+import pandas as pd
+import time, asyncio
+import json
+from datetime import datetime
+import logging
+
+# Optimized database operations and file paths
+class OptimizedKiwoom(QAxWidget):
+    def __init__(self):
+        super().__init__()
+        self.init_logging()
+        self.reset_variables()
+        self.setup_kiwoom()
+        self.start_timers()
+
+    def init_logging(self):
+        """Initialize logging for debugging and tracking."""
+        logging.basicConfig(
+            filename="kiwoom_optimized.log", 
+            format='%(asctime)s %(message)s', 
+            filemode='w'
+        )
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
+
+    def reset_variables(self):
+        """Reset variables for internal data tracking."""
+        self.account_num = None
+        self.remaining_data = True
+        self.tr_data = {
+            'realcharts': {},  # Real-time charts
+            'charts': {},      # Non-real-time charts
+        }
+
+    def setup_kiwoom(self):
+        """Setup Kiwoom API connection and handlers."""
+        self.setControl('KHOPENAPI.KHOpenAPICtrl.1')
+        self.OnReceiveRealData.connect(self.handle_real_data)
+        self.OnEventConnect.connect(self.login_event)
+        self.dynamicCall('CommConnect')
+        self.event_loop = QEventLoop()
+        self.event_loop.exec_()
+
+    def login_event(self, err_code):
+        if err_code == 0:
+            self.logger.info("Successfully logged in.")
+            self.account_num = self.dynamicCall('GetLoginInfo(QString)', ['ACCNO']).strip(';')
+        self.event_loop.exit()
+
+    def start_timers(self):
+        """Initialize periodic timers for data updates."""
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.refresh_data)
+        self.timer.start(180_000)  # Refresh every 3 minutes
+
+    def handle_real_data(self, code, realtype, realdata):
+        """Optimized handling for real-time data."""
+        if realtype == '주식시세':
+            fidlist = list(self.get_fids('주식시세').keys())
+            result = realtype.process_realtype_stock_status(code, fidlist)
+            self.logger.debug(f"Processed real-time data: {result}")
+
+    def refresh_data(self):
+        """Refresh non-real-time data periodically."""
+        # Batch database writes for efficiency
+        with sqlite3.connect('optimized_trading_data.db') as conn:
+            for df_name, df in self.tr_data['charts'].items():
+                if not df.empty:
+                    df.to_sql(df_name, conn, if_exists='append')
+        self.logger.info("Data refreshed and saved to the database.")
+
+    @staticmethod
+    def get_fids(data_type):
+        """Return the FID dictionary for a given data type."""
+        return {
+            '주식시세': {
+                10: '현재가', 11: '전일대비', 12: '등락율', 27: '매도호가',
+                28: '매수호가', 13: '누적거래량', 14: '누적거래대금'
+            }
+        }.get(data_type, {})
+
+if __name__ == "__main__":
+    app = QApplication([])
+    kiwoom = OptimizedKiwoom()
+    app.exec_()
